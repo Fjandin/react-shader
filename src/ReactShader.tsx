@@ -21,6 +21,7 @@ export function ReactShader({
   vertex = DEFAULT_VERTEX,
   uniforms,
   debug = false,
+  fullscreen = false,
 }: ReactShaderProps) {
   const [error, setError] = useState<string | null>(null)
   const [debugInfo, setDebugInfo] = useState<DebugInfo>({
@@ -78,8 +79,23 @@ export function ReactShader({
     )
   }
 
+  const containerStyle: React.CSSProperties = fullscreen
+    ? {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 9999,
+      }
+    : {
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+      }
+
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div style={containerStyle}>
       <canvas
         ref={canvasRef}
         className={className}

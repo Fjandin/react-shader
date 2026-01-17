@@ -9,6 +9,7 @@ export interface ReactShaderProps {
   vertex?: string
   uniforms?: Record<string, UniformValue>
   debug?: boolean
+  fullscreen?: boolean
 }
 
 export interface DefaultUniforms {
