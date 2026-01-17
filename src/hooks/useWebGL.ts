@@ -15,6 +15,7 @@ interface UseWebGLOptions {
   uniforms?: Record<string, UniformValue>
   onError?: (error: Error) => void
   onFrame?: (info: FrameInfo) => void
+  running?: boolean
 }
 
 interface WebGLState {
@@ -86,13 +87,16 @@ export function useWebGL(options: UseWebGLOptions) {
   const uniformsRef = useRef(options.uniforms)
   const onErrorRef = useRef(options.onError)
   const onFrameRef = useRef(options.onFrame)
+  const runningRef = useRef(options.running ?? true)
   const vertexRef = useRef(options.vertex)
   const fragmentRef = useRef(options.fragment)
+  const pausedTimeRef = useRef<number>(0)
 
   // Keep refs updated
   uniformsRef.current = options.uniforms
   onErrorRef.current = options.onError
   onFrameRef.current = options.onFrame
+  runningRef.current = options.running ?? true
   vertexRef.current = options.vertex
   fragmentRef.current = options.fragment
 
@@ -103,6 +107,22 @@ export function useWebGL(options: UseWebGLOptions) {
     const state = stateRef.current
     const canvas = canvasRef.current
     if (!state || !canvas) return
+
+    // Handle pause/resume
+    if (!runningRef.current) {
+      // Track when we paused to adjust time on resume
+      if (pausedTimeRef.current === 0) {
+        pausedTimeRef.current = time
+      }
+      animationFrameRef.current = requestAnimationFrame(render)
+      return
+    }
+
+    // Adjust start time if we were paused
+    if (pausedTimeRef.current > 0) {
+      startTimeRef.current += time - pausedTimeRef.current
+      pausedTimeRef.current = 0
+    }
 
     const { gl, program, positionAttributeLocation, uniformLocationCache } = state
 

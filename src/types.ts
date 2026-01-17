@@ -11,6 +11,8 @@ export interface ReactShaderProps {
   uniforms?: Record<string, UniformValue>
   debug?: boolean
   fullscreen?: boolean
+  /** Whether the shader is running. Defaults to true. Set to false to pause rendering. */
+  running?: boolean
 }
 
 export interface DefaultUniforms {
