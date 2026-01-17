@@ -91,13 +91,16 @@ export function useWebGL(options: UseWebGLOptions) {
     }
     const elapsedTime = (time - startTimeRef.current) / 1000
 
-    // Handle canvas resize
+    // Handle canvas resize with high-DPI support
+    const dpr = window.devicePixelRatio || 1
     const displayWidth = canvas.clientWidth
     const displayHeight = canvas.clientHeight
-    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
-      canvas.width = displayWidth
-      canvas.height = displayHeight
-      gl.viewport(0, 0, displayWidth, displayHeight)
+    const bufferWidth = Math.round(displayWidth * dpr)
+    const bufferHeight = Math.round(displayHeight * dpr)
+    if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
+      canvas.width = bufferWidth
+      canvas.height = bufferHeight
+      gl.viewport(0, 0, bufferWidth, bufferHeight)
     }
 
     // Clear and set up
@@ -165,9 +168,10 @@ export function useWebGL(options: UseWebGLOptions) {
       const canvas = canvasRef.current
       if (!canvas) return
 
+      const dpr = window.devicePixelRatio || 1
       const rect = canvas.getBoundingClientRect()
-      const x = event.clientX - rect.left
-      const y = event.clientY - rect.top
+      const x = (event.clientX - rect.left) * dpr
+      const y = (event.clientY - rect.top) * dpr
       mouseRef.current = [x, y]
     }
 
