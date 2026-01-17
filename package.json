@@ -29,7 +29,8 @@
     "clean": "rm -rf dist",
     "prepublishOnly": "bun run clean && bun run build",
     "lint": "biome check",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "example": "bun run src/example/index.ts"
   },
   "peerDependencies": {
     "react": ">=17.0.0",

@@ -1,6 +1,8 @@
 node_modules/
 dist/
-example/
+_example/
+example
+!src/example
 idea.md
 plan.md
 learnings.md
