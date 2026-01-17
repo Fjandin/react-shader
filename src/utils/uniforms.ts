@@ -1,0 +1,58 @@
+import type { UniformValue, Vec2, Vec3 } from '../types'
+
+function isVec2(value: UniformValue): value is Vec2 {
+  return Array.isArray(value) && value.length === 2
+}
+
+function isVec3(value: UniformValue): value is Vec3 {
+  return Array.isArray(value) && value.length === 3
+}
+
+export function setUniform(
+  gl: WebGLRenderingContext,
+  location: WebGLUniformLocation | null,
+  value: UniformValue
+): void {
+  if (location === null) {
+    return
+  }
+
+  if (typeof value === 'number') {
+    gl.uniform1f(location, value)
+  } else if (isVec2(value)) {
+    gl.uniform2f(location, value[0], value[1])
+  } else if (isVec3(value)) {
+    gl.uniform3f(location, value[0], value[1], value[2])
+  }
+}
+
+export function getUniformLocation(
+  gl: WebGLRenderingContext,
+  program: WebGLProgram,
+  name: string
+): WebGLUniformLocation | null {
+  return gl.getUniformLocation(program, name)
+}
+
+export function setUniforms(
+  gl: WebGLRenderingContext,
+  program: WebGLProgram,
+  uniforms: Record<string, UniformValue>,
+  locationCache: Map<string, WebGLUniformLocation | null>
+): void {
+  for (const [name, value] of Object.entries(uniforms)) {
+    let location = locationCache.get(name)
+    if (location === undefined) {
+      location = getUniformLocation(gl, program, name)
+      locationCache.set(name, location)
+    }
+    setUniform(gl, location, value)
+  }
+}
+
+export function createUniformLocationCache(): Map<
+  string,
+  WebGLUniformLocation | null
+> {
+  return new Map()
+}
