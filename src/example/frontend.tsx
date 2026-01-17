@@ -9,9 +9,7 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import "./style.css"
 import { ReactShader } from "../ReactShader"
-import fragment from "./shader.glsl" with { type: "text" }
-
-console.log("fragment", fragment)
+import { fragment } from "./shader"
 
 // biome-ignore lint/style/noNonNullAssertion: Allow
 const elem = document.getElementById("root")!
@@ -33,8 +31,21 @@ if (import.meta.hot) {
 
 export function App() {
   return (
-    <div style={{ width: "100vw", height: "100vh" }}>
-      <ReactShader fragment={fragment} running={true} uniforms={{ scale: 1.0 }} />
+    <div style={{ width: "800px", height: "600px" }}>
+      <ReactShader
+        fragment={fragment}
+        running={true}
+        uniforms={{
+          scale: 5,
+          iterations: 5,
+          fractMultiplier: 1.0,
+          waveLength: 10,
+          edgeBlur: 0.001,
+          contrast: 0.8,
+          noiseScale: 1,
+          noiseMultiplier: 3.5,
+        }}
+      />
     </div>
   )
 }

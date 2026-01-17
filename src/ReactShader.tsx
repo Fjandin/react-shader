@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { type FrameInfo, useWebGL } from "./hooks/useWebGL"
 import type { ReactShaderProps, Vec2 } from "./types"
 
-const DEFAULT_VERTEX = `
-attribute vec2 a_position;
+const DEFAULT_VERTEX = `#version 300 es
+in vec2 a_position;
 
 void main() {
   gl_Position = vec4(a_position, 0.0, 1.0);
