@@ -159,20 +159,20 @@ export function useWebGL(options: UseWebGLOptions) {
     }
   }, [options.fragment, options.vertex, render])
 
-  // Mouse tracking
+  // Mouse tracking (globally, so position updates even outside canvas)
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
     const handleMouseMove = (event: MouseEvent) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+
       const rect = canvas.getBoundingClientRect()
       const x = event.clientX - rect.left
       const y = event.clientY - rect.top
       mouseRef.current = [x, y]
     }
 
-    canvas.addEventListener('mousemove', handleMouseMove)
-    return () => canvas.removeEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
   }, [])
 
   return { canvasRef, mouseRef }
