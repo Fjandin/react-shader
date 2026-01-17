@@ -1,5 +1,7 @@
+type WebGLContext = WebGLRenderingContext | WebGL2RenderingContext
+
 export function compileShader(
-  gl: WebGLRenderingContext,
+  gl: WebGLContext,
   type: number,
   source: string
 ): WebGLShader {
@@ -24,7 +26,7 @@ export function compileShader(
 }
 
 export function createProgram(
-  gl: WebGLRenderingContext,
+  gl: WebGLContext,
   vertexShader: WebGLShader,
   fragmentShader: WebGLShader
 ): WebGLProgram {
@@ -47,7 +49,7 @@ export function createProgram(
 }
 
 export function createShaderProgram(
-  gl: WebGLRenderingContext,
+  gl: WebGLContext,
   vertexSource: string,
   fragmentSource: string
 ): WebGLProgram {

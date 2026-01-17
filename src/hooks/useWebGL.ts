@@ -18,8 +18,10 @@ interface UseWebGLOptions {
   running?: boolean
 }
 
+type WebGLContext = WebGLRenderingContext | WebGL2RenderingContext
+
 interface WebGLState {
-  gl: WebGLRenderingContext
+  gl: WebGLContext
   program: WebGLProgram
   positionBuffer: WebGLBuffer
   positionAttributeLocation: number
@@ -31,7 +33,8 @@ function initializeWebGL(
   vertexSource: string,
   fragmentSource: string
 ): WebGLState {
-  const gl = canvas.getContext('webgl')
+  // Try WebGL2 first, fall back to WebGL1
+  const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
   if (!gl) {
     throw new Error('WebGL not supported')
   }
@@ -71,7 +74,7 @@ function initializeWebGL(
   }
 }
 
-function cleanupWebGL(gl: WebGLRenderingContext, state: WebGLState): void {
+function cleanupWebGL(gl: WebGLContext, state: WebGLState): void {
   gl.deleteBuffer(state.positionBuffer)
   gl.deleteProgram(state.program)
 }

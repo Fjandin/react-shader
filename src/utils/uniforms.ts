@@ -1,5 +1,7 @@
 import type { UniformValue, Vec2, Vec3, Vec4 } from '../types'
 
+type WebGLContext = WebGLRenderingContext | WebGL2RenderingContext
+
 function isVec2(value: UniformValue): value is Vec2 {
   return Array.isArray(value) && value.length === 2
 }
@@ -13,7 +15,7 @@ function isVec4(value: UniformValue): value is Vec4 {
 }
 
 export function setUniform(
-  gl: WebGLRenderingContext,
+  gl: WebGLContext,
   location: WebGLUniformLocation | null,
   value: UniformValue
 ): void {
@@ -33,7 +35,7 @@ export function setUniform(
 }
 
 export function getUniformLocation(
-  gl: WebGLRenderingContext,
+  gl: WebGLContext,
   program: WebGLProgram,
   name: string
 ): WebGLUniformLocation | null {
@@ -41,7 +43,7 @@ export function getUniformLocation(
 }
 
 export function setUniforms(
-  gl: WebGLRenderingContext,
+  gl: WebGLContext,
   program: WebGLProgram,
   uniforms: Record<string, UniformValue>,
   locationCache: Map<string, WebGLUniformLocation | null>
