@@ -3,11 +3,18 @@ import type { UniformValue } from '../types'
 import { createShaderProgram } from '../utils/shader'
 import { setUniforms, createUniformLocationCache } from '../utils/uniforms'
 
+export interface FrameInfo {
+  time: number
+  resolution: [number, number]
+  mouse: [number, number]
+}
+
 interface UseWebGLOptions {
   fragment: string
   vertex: string
   uniforms?: Record<string, UniformValue>
   onError?: (error: Error) => void
+  onFrame?: (info: FrameInfo) => void
 }
 
 interface WebGLState {
@@ -77,12 +84,14 @@ export function useWebGL(options: UseWebGLOptions) {
   const contextLostRef = useRef<boolean>(false)
   const uniformsRef = useRef(options.uniforms)
   const onErrorRef = useRef(options.onError)
+  const onFrameRef = useRef(options.onFrame)
   const vertexRef = useRef(options.vertex)
   const fragmentRef = useRef(options.fragment)
 
   // Keep refs updated
   uniformsRef.current = options.uniforms
   onErrorRef.current = options.onError
+  onFrameRef.current = options.onFrame
   vertexRef.current = options.vertex
   fragmentRef.current = options.fragment
 
@@ -148,6 +157,15 @@ export function useWebGL(options: UseWebGLOptions) {
 
     // Draw
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+    // Call onFrame callback with current frame info
+    if (onFrameRef.current) {
+      onFrameRef.current({
+        time: elapsedTime,
+        resolution: [canvas.width, canvas.height],
+        mouse: mouseRef.current,
+      })
+    }
 
     // Continue render loop
     animationFrameRef.current = requestAnimationFrame(render)

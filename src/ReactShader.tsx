@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { ReactShaderProps, Vec2 } from './types'
-import { useWebGL } from './hooks/useWebGL'
+import { useWebGL, FrameInfo } from './hooks/useWebGL'
 
 const DEFAULT_VERTEX = `
 attribute vec2 a_position;
@@ -28,40 +28,39 @@ export function ReactShader({
     iResolution: [0, 0],
     iMouse: [0, 0],
   })
+  const lastDebugUpdateRef = useRef<number>(0)
 
   const handleError = useCallback((err: Error) => {
     setError(err.message)
     console.error('ReactShader error:', err)
   }, [])
 
+  const handleFrame = useCallback((info: FrameInfo) => {
+    if (!debug) return
+
+    // Throttle debug updates to ~10fps to avoid excessive re-renders
+    const now = performance.now()
+    if (now - lastDebugUpdateRef.current < 100) return
+    lastDebugUpdateRef.current = now
+
+    setDebugInfo({
+      iResolution: info.resolution,
+      iMouse: info.mouse,
+    })
+  }, [debug])
+
   // Clear error when shader props change to allow retry
   useEffect(() => {
     setError(null)
   }, [fragment, vertex])
 
-  const { canvasRef, mouseRef } = useWebGL({
+  const { canvasRef } = useWebGL({
     fragment,
     vertex,
     uniforms,
     onError: handleError,
+    onFrame: handleFrame,
   })
-
-  useEffect(() => {
-    if (!debug) return
-
-    const updateDebugInfo = () => {
-      const canvas = canvasRef.current
-      if (canvas) {
-        setDebugInfo({
-          iResolution: [canvas.width, canvas.height],
-          iMouse: mouseRef.current,
-        })
-      }
-    }
-
-    const intervalId = setInterval(updateDebugInfo, 100)
-    return () => clearInterval(intervalId)
-  }, [debug, canvasRef, mouseRef])
 
   const containerStyle: React.CSSProperties = fullscreen
     ? {
