@@ -167,7 +167,7 @@ export function useWebGL(options: UseWebGLOptions) {
     const handleMouseMove = (event: MouseEvent) => {
       const rect = canvas.getBoundingClientRect()
       const x = event.clientX - rect.left
-      const y = rect.height - (event.clientY - rect.top) // Flip Y for WebGL coords
+      const y = event.clientY - rect.top
       mouseRef.current = [x, y]
     }
 
