@@ -81,6 +81,7 @@ export function useWebGL(options: UseWebGLOptions) {
   const animationFrameRef = useRef<number>(0)
   const startTimeRef = useRef<number>(0)
   const mouseRef = useRef<[number, number]>([0, 0])
+  const canvasRectRef = useRef<DOMRect | null>(null)
   const contextLostRef = useRef<boolean>(false)
   const uniformsRef = useRef(options.uniforms)
   const onErrorRef = useRef(options.onError)
@@ -222,12 +223,26 @@ export function useWebGL(options: UseWebGLOptions) {
 
   // Mouse tracking (globally, so position updates even outside canvas)
   useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    // Cache the bounding rect and update on resize
+    const updateRect = () => {
+      canvasRectRef.current = canvas.getBoundingClientRect()
+    }
+    updateRect()
+
+    const resizeObserver = new ResizeObserver(updateRect)
+    resizeObserver.observe(canvas)
+
+    // Also update on scroll since getBoundingClientRect is viewport-relative
+    window.addEventListener('scroll', updateRect, { passive: true })
+
     const handleMouseMove = (event: MouseEvent) => {
-      const canvas = canvasRef.current
-      if (!canvas) return
+      const rect = canvasRectRef.current
+      if (!rect) return
 
       const dpr = window.devicePixelRatio || 1
-      const rect = canvas.getBoundingClientRect()
       const x = (event.clientX - rect.left) * dpr
       // Y is inverted: WebGL convention has Y=0 at bottom, DOM has Y=0 at top
       const y = (rect.height - (event.clientY - rect.top)) * dpr
@@ -235,7 +250,12 @@ export function useWebGL(options: UseWebGLOptions) {
     }
 
     window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('scroll', updateRect)
+      window.removeEventListener('mousemove', handleMouseMove)
+    }
   }, [])
 
   return { canvasRef, mouseRef }
