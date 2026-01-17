@@ -106,6 +106,13 @@ export function useWebGL(options: UseWebGLOptions) {
     const dpr = window.devicePixelRatio || 1
     const displayWidth = canvas.clientWidth
     const displayHeight = canvas.clientHeight
+
+    // Skip rendering if canvas has zero size (hidden or not in DOM)
+    if (displayWidth === 0 || displayHeight === 0) {
+      animationFrameRef.current = requestAnimationFrame(render)
+      return
+    }
+
     const bufferWidth = Math.round(displayWidth * dpr)
     const bufferHeight = Math.round(displayHeight * dpr)
     if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
@@ -203,7 +210,8 @@ export function useWebGL(options: UseWebGLOptions) {
       const dpr = window.devicePixelRatio || 1
       const rect = canvas.getBoundingClientRect()
       const x = (event.clientX - rect.left) * dpr
-      const y = (event.clientY - rect.top) * dpr
+      // Y is inverted: WebGL convention has Y=0 at bottom, DOM has Y=0 at top
+      const y = (rect.height - (event.clientY - rect.top)) * dpr
       mouseRef.current = [x, y]
     }
 
