@@ -50,6 +50,9 @@ function initializeWebGL(
   gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW)
 
   const positionAttributeLocation = gl.getAttribLocation(program, 'a_position')
+  if (positionAttributeLocation === -1) {
+    throw new Error('Vertex shader must have an "a_position" attribute')
+  }
 
   return {
     gl,
