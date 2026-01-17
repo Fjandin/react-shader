@@ -74,7 +74,7 @@ export function ReactShader({
         left: 0,
         width: "100vw",
         height: "100vh",
-        zIndex: 9999,
+        zIndex: 9000,
       }
     : {
         position: "relative",
