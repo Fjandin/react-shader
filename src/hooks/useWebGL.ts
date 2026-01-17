@@ -71,14 +71,22 @@ export function useWebGL(options: UseWebGLOptions) {
   const animationFrameRef = useRef<number>(0)
   const startTimeRef = useRef<number>(0)
   const mouseRef = useRef<[number, number]>([0, 0])
+  const contextLostRef = useRef<boolean>(false)
   const uniformsRef = useRef(options.uniforms)
   const onErrorRef = useRef(options.onError)
+  const vertexRef = useRef(options.vertex)
+  const fragmentRef = useRef(options.fragment)
 
   // Keep refs updated
   uniformsRef.current = options.uniforms
   onErrorRef.current = options.onError
+  vertexRef.current = options.vertex
+  fragmentRef.current = options.fragment
 
   const render = useCallback((time: number) => {
+    // Skip rendering if context is lost
+    if (contextLostRef.current) return
+
     const state = stateRef.current
     const canvas = canvasRef.current
     if (!state || !canvas) return
@@ -140,20 +148,41 @@ export function useWebGL(options: UseWebGLOptions) {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    try {
-      stateRef.current = initializeWebGL(canvas, options.vertex, options.fragment)
-      startTimeRef.current = 0
-      animationFrameRef.current = requestAnimationFrame(render)
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err))
-      if (onErrorRef.current) {
-        onErrorRef.current(error)
-      } else {
-        console.error('WebGL initialization failed:', error)
+    const initialize = () => {
+      try {
+        stateRef.current = initializeWebGL(canvas, vertexRef.current, fragmentRef.current)
+        startTimeRef.current = 0
+        contextLostRef.current = false
+        animationFrameRef.current = requestAnimationFrame(render)
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err))
+        if (onErrorRef.current) {
+          onErrorRef.current(error)
+        } else {
+          console.error('WebGL initialization failed:', error)
+        }
       }
     }
 
+    const handleContextLost = (event: WebGLContextEvent) => {
+      event.preventDefault()
+      contextLostRef.current = true
+      cancelAnimationFrame(animationFrameRef.current)
+      stateRef.current = null
+    }
+
+    const handleContextRestored = () => {
+      initialize()
+    }
+
+    canvas.addEventListener('webglcontextlost', handleContextLost)
+    canvas.addEventListener('webglcontextrestored', handleContextRestored)
+
+    initialize()
+
     return () => {
+      canvas.removeEventListener('webglcontextlost', handleContextLost)
+      canvas.removeEventListener('webglcontextrestored', handleContextRestored)
       cancelAnimationFrame(animationFrameRef.current)
       if (stateRef.current) {
         cleanupWebGL(stateRef.current.gl, stateRef.current)
