@@ -34,6 +34,11 @@ export function ReactShader({
     console.error('ReactShader error:', err)
   }, [])
 
+  // Clear error when shader props change to allow retry
+  useEffect(() => {
+    setError(null)
+  }, [fragment, vertex])
+
   const { canvasRef, mouseRef } = useWebGL({
     fragment,
     vertex,
@@ -58,27 +63,6 @@ export function ReactShader({
     return () => clearInterval(intervalId)
   }, [debug, canvasRef, mouseRef])
 
-  if (error) {
-    return (
-      <div
-        className={className}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#1a1a1a',
-          color: '#ff6b6b',
-          fontFamily: 'monospace',
-          fontSize: '12px',
-          padding: '16px',
-          overflow: 'auto',
-        }}
-      >
-        <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{error}</pre>
-      </div>
-    )
-  }
-
   const containerStyle: React.CSSProperties = fullscreen
     ? {
         position: 'fixed',
@@ -93,6 +77,29 @@ export function ReactShader({
         width: '100%',
         height: '100%',
       }
+
+  if (error) {
+    return (
+      <div
+        className={className}
+        style={{
+          ...containerStyle,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#1a1a1a',
+          color: '#ff6b6b',
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          padding: '16px',
+          overflow: 'auto',
+          boxSizing: 'border-box',
+        }}
+      >
+        <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{error}</pre>
+      </div>
+    )
+  }
 
   return (
     <div style={containerStyle}>

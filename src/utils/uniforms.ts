@@ -1,4 +1,4 @@
-import type { UniformValue, Vec2, Vec3 } from '../types'
+import type { UniformValue, Vec2, Vec3, Vec4 } from '../types'
 
 function isVec2(value: UniformValue): value is Vec2 {
   return Array.isArray(value) && value.length === 2
@@ -6,6 +6,10 @@ function isVec2(value: UniformValue): value is Vec2 {
 
 function isVec3(value: UniformValue): value is Vec3 {
   return Array.isArray(value) && value.length === 3
+}
+
+function isVec4(value: UniformValue): value is Vec4 {
+  return Array.isArray(value) && value.length === 4
 }
 
 export function setUniform(
@@ -19,10 +23,12 @@ export function setUniform(
 
   if (typeof value === 'number') {
     gl.uniform1f(location, value)
-  } else if (isVec2(value)) {
-    gl.uniform2f(location, value[0], value[1])
+  } else if (isVec4(value)) {
+    gl.uniform4f(location, value[0], value[1], value[2], value[3])
   } else if (isVec3(value)) {
     gl.uniform3f(location, value[0], value[1], value[2])
+  } else if (isVec2(value)) {
+    gl.uniform2f(location, value[0], value[1])
   }
 }
 

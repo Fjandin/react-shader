@@ -41,11 +41,11 @@ function initializeWebGL(
   // Two triangles covering the entire clip space (-1 to 1)
   const positions = new Float32Array([
     -1, -1,
-     1, -1,
-    -1,  1,
-    -1,  1,
-     1, -1,
-     1,  1,
+    1, -1,
+    -1, 1,
+    -1, 1,
+    1, -1,
+    1, 1,
   ])
   gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW)
 
@@ -185,14 +185,15 @@ export function useWebGL(options: UseWebGLOptions) {
       initialize()
     }
 
-    canvas.addEventListener('webglcontextlost', handleContextLost)
-    canvas.addEventListener('webglcontextrestored', handleContextRestored)
+    // Use type casting so that TypeScript accepts the event signature
+    canvas.addEventListener('webglcontextlost', handleContextLost as EventListener)
+    canvas.addEventListener('webglcontextrestored', handleContextRestored as EventListener)
 
     initialize()
 
     return () => {
-      canvas.removeEventListener('webglcontextlost', handleContextLost)
-      canvas.removeEventListener('webglcontextrestored', handleContextRestored)
+      canvas.removeEventListener('webglcontextlost', handleContextLost as EventListener)
+      canvas.removeEventListener('webglcontextrestored', handleContextRestored as EventListener)
       cancelAnimationFrame(animationFrameRef.current)
       if (stateRef.current) {
         cleanupWebGL(stateRef.current.gl, stateRef.current)
