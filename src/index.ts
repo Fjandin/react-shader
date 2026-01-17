@@ -1,9 +1,9 @@
-export { ReactShader } from './ReactShader'
+export { ReactShader } from "./ReactShader"
 export type {
+  DefaultUniforms,
   ReactShaderProps,
+  UniformValue,
   Vec2,
   Vec3,
   Vec4,
-  UniformValue,
-  DefaultUniforms,
-} from './types'
+} from "./types"

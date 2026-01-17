@@ -1,15 +1,9 @@
 type WebGLContext = WebGLRenderingContext | WebGL2RenderingContext
 
-export function compileShader(
-  gl: WebGLContext,
-  type: number,
-  source: string
-): WebGLShader {
+export function compileShader(gl: WebGLContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type)
   if (!shader) {
-    throw new Error(
-      `Failed to create shader of type ${type === gl.VERTEX_SHADER ? 'VERTEX' : 'FRAGMENT'}`
-    )
+    throw new Error(`Failed to create shader of type ${type === gl.VERTEX_SHADER ? "VERTEX" : "FRAGMENT"}`)
   }
 
   gl.shaderSource(shader, source)
@@ -18,21 +12,17 @@ export function compileShader(
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     const info = gl.getShaderInfoLog(shader)
     gl.deleteShader(shader)
-    const shaderType = type === gl.VERTEX_SHADER ? 'Vertex' : 'Fragment'
+    const shaderType = type === gl.VERTEX_SHADER ? "Vertex" : "Fragment"
     throw new Error(`${shaderType} shader compilation failed:\n${info}`)
   }
 
   return shader
 }
 
-export function createProgram(
-  gl: WebGLContext,
-  vertexShader: WebGLShader,
-  fragmentShader: WebGLShader
-): WebGLProgram {
+export function createProgram(gl: WebGLContext, vertexShader: WebGLShader, fragmentShader: WebGLShader): WebGLProgram {
   const program = gl.createProgram()
   if (!program) {
-    throw new Error('Failed to create WebGL program')
+    throw new Error("Failed to create WebGL program")
   }
 
   gl.attachShader(program, vertexShader)
@@ -48,11 +38,7 @@ export function createProgram(
   return program
 }
 
-export function createShaderProgram(
-  gl: WebGLContext,
-  vertexSource: string,
-  fragmentSource: string
-): WebGLProgram {
+export function createShaderProgram(gl: WebGLContext, vertexSource: string, fragmentSource: string): WebGLProgram {
   const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vertexSource)
   const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource)
 

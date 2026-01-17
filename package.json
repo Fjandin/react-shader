@@ -27,13 +27,16 @@
     "build:cjs": "bun build ./src/index.ts --target browser --format cjs --outfile ./dist/index.cjs --external react --external react-dom",
     "build:types": "tsc --emitDeclarationOnly --declaration --outDir ./dist",
     "clean": "rm -rf dist",
-    "prepublishOnly": "bun run clean && bun run build"
+    "prepublishOnly": "bun run clean && bun run build",
+    "lint": "biome check",
+    "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
     "react": ">=17.0.0",
     "react-dom": ">=17.0.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.3.11",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "bun-types": "latest",

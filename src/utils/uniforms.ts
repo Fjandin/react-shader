@@ -1,4 +1,4 @@
-import type { UniformValue, Vec2, Vec3, Vec4 } from '../types'
+import type { UniformValue, Vec2, Vec3, Vec4 } from "../types"
 
 type WebGLContext = WebGLRenderingContext | WebGL2RenderingContext
 
@@ -14,16 +14,12 @@ function isVec4(value: UniformValue): value is Vec4 {
   return Array.isArray(value) && value.length === 4
 }
 
-export function setUniform(
-  gl: WebGLContext,
-  location: WebGLUniformLocation | null,
-  value: UniformValue
-): void {
+export function setUniform(gl: WebGLContext, location: WebGLUniformLocation | null, value: UniformValue): void {
   if (location === null) {
     return
   }
 
-  if (typeof value === 'number') {
+  if (typeof value === "number") {
     gl.uniform1f(location, value)
   } else if (isVec4(value)) {
     gl.uniform4f(location, value[0], value[1], value[2], value[3])
@@ -34,11 +30,7 @@ export function setUniform(
   }
 }
 
-export function getUniformLocation(
-  gl: WebGLContext,
-  program: WebGLProgram,
-  name: string
-): WebGLUniformLocation | null {
+export function getUniformLocation(gl: WebGLContext, program: WebGLProgram, name: string): WebGLUniformLocation | null {
   return gl.getUniformLocation(program, name)
 }
 
@@ -46,7 +38,7 @@ export function setUniforms(
   gl: WebGLContext,
   program: WebGLProgram,
   uniforms: Record<string, UniformValue>,
-  locationCache: Map<string, WebGLUniformLocation | null>
+  locationCache: Map<string, WebGLUniformLocation | null>,
 ): void {
   for (const [name, value] of Object.entries(uniforms)) {
     let location = locationCache.get(name)
@@ -58,9 +50,6 @@ export function setUniforms(
   }
 }
 
-export function createUniformLocationCache(): Map<
-  string,
-  WebGLUniformLocation | null
-> {
+export function createUniformLocationCache(): Map<string, WebGLUniformLocation | null> {
   return new Map()
 }

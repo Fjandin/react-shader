@@ -1,7 +1,7 @@
-import { useRef, useEffect, useCallback } from 'react'
-import type { UniformValue } from '../types'
-import { createShaderProgram } from '../utils/shader'
-import { setUniforms, createUniformLocationCache } from '../utils/uniforms'
+import { useCallback, useEffect, useRef } from "react"
+import type { UniformValue } from "../types"
+import { createShaderProgram } from "../utils/shader"
+import { createUniformLocationCache, setUniforms } from "../utils/uniforms"
 
 export interface FrameInfo {
   time: number
@@ -28,15 +28,11 @@ interface WebGLState {
   uniformLocationCache: Map<string, WebGLUniformLocation | null>
 }
 
-function initializeWebGL(
-  canvas: HTMLCanvasElement,
-  vertexSource: string,
-  fragmentSource: string
-): WebGLState {
+function initializeWebGL(canvas: HTMLCanvasElement, vertexSource: string, fragmentSource: string): WebGLState {
   // Try WebGL2 first, fall back to WebGL1
-  const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
+  const gl = canvas.getContext("webgl2") || canvas.getContext("webgl")
   if (!gl) {
-    throw new Error('WebGL not supported')
+    throw new Error("WebGL not supported")
   }
 
   const program = createShaderProgram(gl, vertexSource, fragmentSource)
@@ -44,23 +40,16 @@ function initializeWebGL(
   // Create position buffer for full-screen quad
   const positionBuffer = gl.createBuffer()
   if (!positionBuffer) {
-    throw new Error('Failed to create position buffer')
+    throw new Error("Failed to create position buffer")
   }
 
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
 
   // Two triangles covering the entire clip space (-1 to 1)
-  const positions = new Float32Array([
-    -1, -1,
-    1, -1,
-    -1, 1,
-    -1, 1,
-    1, -1,
-    1, 1,
-  ])
+  const positions = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1])
   gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW)
 
-  const positionAttributeLocation = gl.getAttribLocation(program, 'a_position')
+  const positionAttributeLocation = gl.getAttribLocation(program, "a_position")
   if (positionAttributeLocation === -1) {
     throw new Error('Vertex shader must have an "a_position" attribute')
   }
@@ -158,6 +147,7 @@ export function useWebGL(options: UseWebGLOptions) {
     gl.clearColor(0, 0, 0, 1)
     gl.clear(gl.COLOR_BUFFER_BIT)
 
+    // biome-ignore lint/correctness/useHookAtTopLevel: not a react hook
     gl.useProgram(program)
 
     // Set up position attribute
@@ -211,7 +201,7 @@ export function useWebGL(options: UseWebGLOptions) {
         if (onErrorRef.current) {
           onErrorRef.current(error)
         } else {
-          console.error('WebGL initialization failed:', error)
+          console.error("WebGL initialization failed:", error)
         }
       }
     }
@@ -228,21 +218,21 @@ export function useWebGL(options: UseWebGLOptions) {
     }
 
     // Use type casting so that TypeScript accepts the event signature
-    canvas.addEventListener('webglcontextlost', handleContextLost as EventListener)
-    canvas.addEventListener('webglcontextrestored', handleContextRestored as EventListener)
+    canvas.addEventListener("webglcontextlost", handleContextLost as EventListener)
+    canvas.addEventListener("webglcontextrestored", handleContextRestored as EventListener)
 
     initialize()
 
     return () => {
-      canvas.removeEventListener('webglcontextlost', handleContextLost as EventListener)
-      canvas.removeEventListener('webglcontextrestored', handleContextRestored as EventListener)
+      canvas.removeEventListener("webglcontextlost", handleContextLost as EventListener)
+      canvas.removeEventListener("webglcontextrestored", handleContextRestored as EventListener)
       cancelAnimationFrame(animationFrameRef.current)
       if (stateRef.current) {
         cleanupWebGL(stateRef.current.gl, stateRef.current)
         stateRef.current = null
       }
     }
-  }, [options.fragment, options.vertex, render])
+  }, [render])
 
   // Mouse tracking (globally, so position updates even outside canvas)
   useEffect(() => {
@@ -259,7 +249,7 @@ export function useWebGL(options: UseWebGLOptions) {
     resizeObserver.observe(canvas)
 
     // Also update on scroll since getBoundingClientRect is viewport-relative
-    window.addEventListener('scroll', updateRect, { passive: true })
+    window.addEventListener("scroll", updateRect, { passive: true })
 
     const handleMouseMove = (event: MouseEvent) => {
       const rect = canvasRectRef.current
@@ -272,12 +262,12 @@ export function useWebGL(options: UseWebGLOptions) {
       mouseRef.current = [x, y]
     }
 
-    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener("mousemove", handleMouseMove)
 
     return () => {
       resizeObserver.disconnect()
-      window.removeEventListener('scroll', updateRect)
-      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener("scroll", updateRect)
+      window.removeEventListener("mousemove", handleMouseMove)
     }
   }, [])
 
