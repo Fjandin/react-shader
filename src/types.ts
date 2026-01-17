@@ -8,6 +8,7 @@ export interface ReactShaderProps {
   fragment: string
   vertex?: string
   uniforms?: Record<string, UniformValue>
+  debug?: boolean
 }
 
 export interface DefaultUniforms {

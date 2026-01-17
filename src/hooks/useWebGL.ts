@@ -175,5 +175,5 @@ export function useWebGL(options: UseWebGLOptions) {
     return () => canvas.removeEventListener('mousemove', handleMouseMove)
   }, [])
 
-  return { canvasRef }
+  return { canvasRef, mouseRef }
 }
