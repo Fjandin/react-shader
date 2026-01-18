@@ -34,16 +34,17 @@ export function App() {
     <div style={{ width: "800px", height: "600px" }}>
       <ReactShader
         fragment={fragment}
-        timeScale={0.2}
+        timeScale={1.2}
+        fullscreen={true}
         uniforms={{
-          scale: 5,
-          iterations: 5,
-          fractMultiplier: 0.4,
+          scale: 1,
+          iterations: 1,
+          fractMultiplier: 1,
           waveLength: 10,
-          edgeBlur: 0.001,
-          contrast: 0.8,
-          noiseScale: 2,
-          noiseMultiplier: 3.5,
+          edgeBlur: 0.01,
+          contrast: 0.5,
+          noiseScale: 1,
+          noiseMultiplier: 0.1,
         }}
       />
     </div>

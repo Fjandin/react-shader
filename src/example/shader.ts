@@ -60,12 +60,17 @@ void main() {
   float noiseValueY = SimplexNoise(vec3(uv / noiseScale, -iTime)) * noiseMultiplier;
   vec2 noiseValue = vec2(noiseValueX, noiseValueY);
 
+  float dist = length(uv - mouse);
+
   uv += noiseValue * 0.1;
 
-  vec3 color = Circles(uv, iterations, fractMultiplier, iTime, waveLength, edgeBlur, contrast);
+  float ripple = sin(dist * 30.0 - iTime * 4.0) * 0.5 + 0.5;
+  uv += ripple * 0.2 * smoothstep(0.5, 0.0, dist);
+
+  vec3 color = Circles(uv, iterations, fractMultiplier, 0.0, waveLength, edgeBlur, contrast);
 
   // Animated gradient with mouse interaction
-  // float dist = length(uv - mouse);
+  
   // vec3 color = vec3(
   //   sin(uv.x * 6.0 + iTime) * 0.5 + 0.5,
   //   sin(uv.y * 6.0 + iTime * 1.3) * 0.5 + 0.5,
@@ -75,6 +80,8 @@ void main() {
   // Add ripple effect from mouse position
   // float ripple = sin(dist * 30.0 - iTime * 4.0) * 0.5 + 0.5;
   // color += ripple * 0.2 * smoothstep(0.5, 0.0, dist);
+
+  // color = vec3(1.0, 1.0, 1.0) - color;
 
   fragColor = vec4(color, 1.0);
 }`
