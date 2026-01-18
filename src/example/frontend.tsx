@@ -5,7 +5,7 @@
  * It is included in `src/index.html`.
  */
 
-import { StrictMode } from "react"
+import { StrictMode, useState } from "react"
 import { createRoot } from "react-dom/client"
 import "./style.css"
 import { ReactShader } from "../ReactShader"
@@ -30,6 +30,7 @@ if (import.meta.hot) {
 }
 
 export function App() {
+  const [iTime2, setITime2] = useState(0)
   return (
     <div style={{ width: "800px", height: "600px" }}>
       <ReactShader
@@ -37,14 +38,18 @@ export function App() {
         timeScale={1.2}
         fullscreen={true}
         uniforms={{
+          iTime2: iTime2,
           scale: 1,
           iterations: 1,
           fractMultiplier: 1,
           waveLength: 10,
           edgeBlur: 0.01,
           contrast: 0.5,
-          noiseScale: 1,
+          noiseScale: 0.2,
           noiseMultiplier: 0.1,
+        }}
+        onFrame={(info) => {
+          setITime2(iTime2 + info.deltaTime * 0.1)
         }}
       />
     </div>

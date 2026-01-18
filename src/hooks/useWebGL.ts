@@ -4,6 +4,7 @@ import { createShaderProgram } from "../utils/shader"
 import { createUniformLocationCache, setUniforms } from "../utils/uniforms"
 
 export interface FrameInfo {
+  deltaTime: number
   time: number
   resolution: [number, number]
   mouse: [number, number]
@@ -76,6 +77,7 @@ export function useWebGL(options: UseWebGLOptions) {
   const elapsedTimeRef = useRef<number>(0)
   const lastFrameTimeRef = useRef<number>(0)
   const mouseRef = useRef<[number, number]>([0, 0])
+  const mouseLeftDownRef = useRef<boolean>(false)
   const canvasRectRef = useRef<DOMRect | null>(null)
   const contextLostRef = useRef<boolean>(false)
   const uniformsRef = useRef(options.uniforms)
@@ -145,6 +147,7 @@ export function useWebGL(options: UseWebGLOptions) {
     const defaultUniforms: Record<string, UniformValue> = {
       iTime: elapsedTime,
       iMouse: mouseRef.current,
+      iMouseLeftDown: mouseLeftDownRef.current ? 1.0 : 0.0,
       iResolution: [canvas.width, canvas.height],
     }
 
@@ -161,6 +164,7 @@ export function useWebGL(options: UseWebGLOptions) {
     // Call onFrame callback with current frame info
     if (onFrameRef.current) {
       onFrameRef.current({
+        deltaTime: deltaTime,
         time: elapsedTime,
         resolution: [canvas.width, canvas.height],
         mouse: mouseRef.current,
@@ -249,12 +253,28 @@ export function useWebGL(options: UseWebGLOptions) {
       mouseRef.current = [x, y]
     }
 
+    const handleMouseDown = (event: MouseEvent) => {
+      if (event.button === 0) {
+        mouseLeftDownRef.current = true
+      }
+    }
+
+    const handleMouseUp = (event: MouseEvent) => {
+      if (event.button === 0) {
+        mouseLeftDownRef.current = false
+      }
+    }
+
     window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mousedown", handleMouseDown)
+    window.addEventListener("mouseup", handleMouseUp)
 
     return () => {
       resizeObserver.disconnect()
       window.removeEventListener("scroll", updateRect)
       window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mousedown", handleMouseDown)
+      window.removeEventListener("mouseup", handleMouseUp)
     }
   }, [])
 

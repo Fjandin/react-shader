@@ -4,8 +4,10 @@ import { generatePaletteFunction } from "./glsl/palette.glsl"
 export const fragment = /*glsl*/ `#version 300 es
 precision mediump float;
 uniform float iTime;
+uniform float iTime2;
 uniform vec2 iResolution;
 uniform vec2 iMouse;
+uniform float iMouseLeftDown;
 uniform float scale;
 uniform float iterations;
 uniform float fractMultiplier;
@@ -56,8 +58,8 @@ void main() {
   // iMouse uses same coordinate system as gl_FragCoord (Y=0 at bottom)
   vec2 mouse = (iMouse - 0.5 * iResolution) / iResolution.y * scale;
 
-  float noiseValueX = SimplexNoise(vec3(uv / noiseScale, iTime)) * noiseMultiplier;
-  float noiseValueY = SimplexNoise(vec3(uv / noiseScale, -iTime)) * noiseMultiplier;
+  float noiseValueX = SimplexNoise(vec3(uv / noiseScale, iTime2)) * noiseMultiplier;
+  float noiseValueY = SimplexNoise(vec3(uv / noiseScale, -iTime2)) * noiseMultiplier;
   vec2 noiseValue = vec2(noiseValueX, noiseValueY);
 
   float dist = length(uv - mouse);
@@ -65,9 +67,10 @@ void main() {
   uv += noiseValue * 0.1;
 
   float ripple = sin(dist * 30.0 - iTime * 4.0) * 0.5 + 0.5;
+  ripple *= iMouseLeftDown;
   uv += ripple * 0.2 * smoothstep(0.5, 0.0, dist);
 
-  vec3 color = Circles(uv, iterations, fractMultiplier, 0.0, waveLength, edgeBlur, contrast);
+  vec3 color = Circles(uv, iterations, fractMultiplier, iTime2, waveLength, edgeBlur, contrast);
 
   // Animated gradient with mouse interaction
   

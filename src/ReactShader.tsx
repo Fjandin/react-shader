@@ -23,6 +23,7 @@ export function ReactShader({
   debug = false,
   fullscreen = false,
   timeScale = 1,
+  onFrame,
 }: ReactShaderProps) {
   const [error, setError] = useState<string | null>(null)
   const [debugInfo, setDebugInfo] = useState<DebugInfo>({
@@ -38,6 +39,9 @@ export function ReactShader({
 
   const handleFrame = useCallback(
     (info: FrameInfo) => {
+      if (onFrame) {
+        onFrame(info)
+      }
       if (!debug) return
 
       // Throttle debug updates to ~10fps to avoid excessive re-renders
@@ -50,7 +54,7 @@ export function ReactShader({
         iMouse: info.mouse,
       })
     },
-    [debug],
+    [debug, onFrame],
   )
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Clear error when shader props change to allow retry
