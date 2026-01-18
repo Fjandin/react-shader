@@ -22,7 +22,7 @@ export function ReactShader({
   uniforms,
   debug = false,
   fullscreen = false,
-  running = true,
+  timeScale = 1,
 }: ReactShaderProps) {
   const [error, setError] = useState<string | null>(null)
   const [debugInfo, setDebugInfo] = useState<DebugInfo>({
@@ -64,7 +64,7 @@ export function ReactShader({
     uniforms,
     onError: handleError,
     onFrame: handleFrame,
-    running,
+    timeScale,
   })
 
   const containerStyle: React.CSSProperties = fullscreen

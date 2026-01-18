@@ -16,6 +16,7 @@ interface UseWebGLOptions {
   onError?: (error: Error) => void
   onFrame?: (info: FrameInfo) => void
   running?: boolean
+  timeScale?: number
 }
 
 type WebGLContext = WebGLRenderingContext | WebGL2RenderingContext
@@ -72,23 +73,23 @@ export function useWebGL(options: UseWebGLOptions) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stateRef = useRef<WebGLState | null>(null)
   const animationFrameRef = useRef<number>(0)
-  const startTimeRef = useRef<number>(0)
+  const elapsedTimeRef = useRef<number>(0)
+  const lastFrameTimeRef = useRef<number>(0)
   const mouseRef = useRef<[number, number]>([0, 0])
   const canvasRectRef = useRef<DOMRect | null>(null)
   const contextLostRef = useRef<boolean>(false)
   const uniformsRef = useRef(options.uniforms)
   const onErrorRef = useRef(options.onError)
   const onFrameRef = useRef(options.onFrame)
-  const runningRef = useRef(options.running ?? true)
+  const timeScaleRef = useRef(options.timeScale ?? 1)
   const vertexRef = useRef(options.vertex)
   const fragmentRef = useRef(options.fragment)
-  const pausedTimeRef = useRef<number>(0)
 
   // Keep refs updated
   uniformsRef.current = options.uniforms
   onErrorRef.current = options.onError
   onFrameRef.current = options.onFrame
-  runningRef.current = options.running ?? true
+  timeScaleRef.current = options.timeScale ?? 1
   vertexRef.current = options.vertex
   fragmentRef.current = options.fragment
 
@@ -100,29 +101,14 @@ export function useWebGL(options: UseWebGLOptions) {
     const canvas = canvasRef.current
     if (!state || !canvas) return
 
-    // Handle pause/resume
-    if (!runningRef.current) {
-      // Track when we paused to adjust time on resume
-      if (pausedTimeRef.current === 0) {
-        pausedTimeRef.current = time
-      }
-      animationFrameRef.current = requestAnimationFrame(render)
-      return
-    }
+    // Calculate delta time and increment elapsed time if running
+    const deltaTime = lastFrameTimeRef.current === 0 ? 0 : (time - lastFrameTimeRef.current) / 1000
+    lastFrameTimeRef.current = time
 
-    // Adjust start time if we were paused
-    if (pausedTimeRef.current > 0) {
-      startTimeRef.current += time - pausedTimeRef.current
-      pausedTimeRef.current = 0
-    }
+    elapsedTimeRef.current += deltaTime * timeScaleRef.current
 
     const { gl, program, positionAttributeLocation, uniformLocationCache } = state
-
-    // Calculate elapsed time in seconds
-    if (startTimeRef.current === 0) {
-      startTimeRef.current = time
-    }
-    const elapsedTime = (time - startTimeRef.current) / 1000
+    const elapsedTime = elapsedTimeRef.current
 
     // Handle canvas resize with high-DPI support
     const dpr = window.devicePixelRatio || 1
@@ -193,7 +179,8 @@ export function useWebGL(options: UseWebGLOptions) {
     const initialize = () => {
       try {
         stateRef.current = initializeWebGL(canvas, vertexRef.current, fragmentRef.current)
-        startTimeRef.current = 0
+        elapsedTimeRef.current = 0
+        lastFrameTimeRef.current = 0
         contextLostRef.current = false
         animationFrameRef.current = requestAnimationFrame(render)
       } catch (err) {

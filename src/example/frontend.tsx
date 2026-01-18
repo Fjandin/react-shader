@@ -34,15 +34,15 @@ export function App() {
     <div style={{ width: "800px", height: "600px" }}>
       <ReactShader
         fragment={fragment}
-        running={true}
+        timeScale={0.2}
         uniforms={{
           scale: 5,
           iterations: 5,
-          fractMultiplier: 1.0,
+          fractMultiplier: 0.4,
           waveLength: 10,
           edgeBlur: 0.001,
           contrast: 0.8,
-          noiseScale: 1,
+          noiseScale: 2,
           noiseMultiplier: 3.5,
         }}
       />
