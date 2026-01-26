@@ -35,21 +35,21 @@ export function App() {
     <div style={{ width: "800px", height: "600px" }}>
       <ReactShader
         fragment={fragment}
-        timeScale={1.2}
+        timeScale={1}
         fullscreen={true}
         uniforms={{
           iTime2: iTime2,
           scale: 1,
-          iterations: 1,
+          iterations: 2,
           fractMultiplier: 1,
           waveLength: 10,
           edgeBlur: 0.01,
-          contrast: 0.5,
-          noiseScale: 0.2,
-          noiseMultiplier: 0.1,
+          contrast: 2,
+          noiseScale: 0.3,
+          noiseMultiplier: 0.5,
         }}
         onFrame={(info) => {
-          setITime2(iTime2 + info.deltaTime * 0.1)
+          setITime2(iTime2 + info.deltaTime * 0.2)
         }}
       />
     </div>

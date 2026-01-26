@@ -1,6 +1,6 @@
 {
   "name": "@fjandin/react-shader",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "React component for rendering WebGL shaders",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -30,7 +30,7 @@
     "prepublishOnly": "bun run clean && bun run build",
     "lint": "biome check",
     "typecheck": "tsc --noEmit",
-    "example": "bun run src/example/index.ts"
+    "dev": "bun run src/example/index.ts"
   },
   "peerDependencies": {
     "react": ">=17.0.0",
