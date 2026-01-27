@@ -17,7 +17,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fjandin/react-shader.git"
+    "url": "git+https://github.com/Fjandin/react-shader.git"
   },
   "exports": {
     ".": {
