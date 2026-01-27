@@ -32,26 +32,30 @@ if (import.meta.hot) {
 export function App() {
   const [iTime2, setITime2] = useState(0)
   return (
-    <div style={{ width: "800px", height: "600px" }}>
-      <ReactShader
-        fragment={fragment}
-        timeScale={1}
-        fullscreen={true}
-        uniforms={{
-          iTime2: iTime2,
-          scale: 1,
-          iterations: 2,
-          fractMultiplier: 1,
-          waveLength: 10,
-          edgeBlur: 0.01,
-          contrast: 2,
-          noiseScale: 0.3,
-          noiseMultiplier: 0.5,
-        }}
-        onFrame={(info) => {
-          setITime2(iTime2 + info.deltaTime * 0.2)
-        }}
-      />
+    <div>
+      <div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "100px" }}>Shader example</div>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", width: "100%" }}>
+        <div style={{ width: "800px", height: "600px" }}>
+          <ReactShader
+            fragment={fragment}
+            timeScale={1}
+            uniforms={{
+              iTime2: iTime2,
+              scale: 1,
+              iterations: 2,
+              fractMultiplier: 1,
+              waveLength: 10,
+              edgeBlur: 0.01,
+              contrast: 2,
+              noiseScale: 0.3,
+              noiseMultiplier: 0.5,
+            }}
+            onFrame={(info) => {
+              setITime2(iTime2 + info.deltaTime * 0.2)
+            }}
+          />
+        </div>
+      </div>
     </div>
   )
 }

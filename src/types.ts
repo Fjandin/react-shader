@@ -11,7 +11,6 @@ export interface ReactShaderProps {
   fragment: string
   vertex?: string
   uniforms?: Record<string, UniformValue>
-  debug?: boolean
   fullscreen?: boolean
   timeScale?: number
   onFrame?: (info: FrameInfo) => void

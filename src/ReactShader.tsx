@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { type FrameInfo, useWebGL } from "./hooks/useWebGL"
-import type { ReactShaderProps, Vec2 } from "./types"
+import type { ReactShaderProps } from "./types"
 
 const DEFAULT_VERTEX = `#version 300 es
 in vec2 a_position;
@@ -10,27 +10,16 @@ void main() {
 }
 `
 
-interface DebugInfo {
-  iResolution: Vec2
-  iMouse: Vec2
-}
-
 export function ReactShader({
   className,
   fragment,
   vertex = DEFAULT_VERTEX,
   uniforms,
-  debug = false,
   fullscreen = false,
   timeScale = 1,
   onFrame,
 }: ReactShaderProps) {
   const [error, setError] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<DebugInfo>({
-    iResolution: [0, 0],
-    iMouse: [0, 0],
-  })
-  const lastDebugUpdateRef = useRef<number>(0)
 
   const handleError = useCallback((err: Error) => {
     setError(err.message)
@@ -42,19 +31,8 @@ export function ReactShader({
       if (onFrame) {
         onFrame(info)
       }
-      if (!debug) return
-
-      // Throttle debug updates to ~10fps to avoid excessive re-renders
-      const now = performance.now()
-      if (now - lastDebugUpdateRef.current < 100) return
-      lastDebugUpdateRef.current = now
-
-      setDebugInfo({
-        iResolution: info.resolution,
-        iMouse: info.mouse,
-      })
     },
-    [debug, onFrame],
+    [onFrame],
   )
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Clear error when shader props change to allow retry
@@ -102,6 +80,8 @@ export function ReactShader({
           padding: "16px",
           overflow: "auto",
           boxSizing: "border-box",
+          width: "100%",
+          height: "100%",
         }}
       >
         <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>{error}</pre>
@@ -109,32 +89,5 @@ export function ReactShader({
     )
   }
 
-  return (
-    <div style={containerStyle}>
-      <canvas ref={canvasRef} className={className} style={{ display: "block", width: "100%", height: "100%" }} />
-      {debug && (
-        <div
-          style={{
-            position: "absolute",
-            top: 8,
-            left: 8,
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
-            color: "#fff",
-            fontFamily: "monospace",
-            fontSize: "12px",
-            padding: "8px",
-            borderRadius: "4px",
-            pointerEvents: "none",
-          }}
-        >
-          <div>
-            iResolution: [{debugInfo.iResolution[0]}, {debugInfo.iResolution[1]}]
-          </div>
-          <div>
-            iMouse: [{Math.round(debugInfo.iMouse[0])}, {Math.round(debugInfo.iMouse[1])}]
-          </div>
-        </div>
-      )}
-    </div>
-  )
+  return <canvas ref={canvasRef} className={className} style={{ display: "block", width: "100%", height: "100%" }} />
 }
