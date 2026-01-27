@@ -8,6 +8,7 @@ export interface FrameInfo {
   time: number
   resolution: [number, number]
   mouse: [number, number]
+  mouseLeftDown: boolean
 }
 
 interface UseWebGLOptions {
@@ -168,6 +169,7 @@ export function useWebGL(options: UseWebGLOptions) {
         time: elapsedTime,
         resolution: [canvas.width, canvas.height],
         mouse: mouseRef.current,
+        mouseLeftDown: mouseLeftDownRef.current,
       })
     }
 
