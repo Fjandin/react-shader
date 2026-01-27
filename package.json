@@ -6,6 +6,19 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "keywords": [
+    "react",
+    "shader",
+    "webgl",
+    "glsl",
+    "graphics"
+  ],
+  "author": "fjandin",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fjandin/react-shader.git"
+  },
   "exports": {
     ".": {
       "import": {
@@ -44,18 +57,5 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "typescript": "^5.0.0"
-  },
-  "keywords": [
-    "react",
-    "shader",
-    "webgl",
-    "glsl",
-    "graphics"
-  ],
-  "author": "fjandin",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/fjandin/react-shader.git"
   }
 }
