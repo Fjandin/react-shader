@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react"
 import type { UniformValue } from "../types"
 import { createShaderProgram } from "../utils/shader"
-import { createUniformLocationCache, setUniforms } from "../utils/uniforms"
+import { createUniformLocationCache, injectUniformDeclarations, setUniforms } from "../utils/uniforms"
 
 export interface FrameInfo {
   deltaTime: number
@@ -31,14 +31,33 @@ interface WebGLState {
   uniformLocationCache: Map<string, WebGLUniformLocation | null>
 }
 
-function initializeWebGL(canvas: HTMLCanvasElement, vertexSource: string, fragmentSource: string): WebGLState {
+const DEFAULT_UNIFORM_TYPES: Record<string, UniformValue> = {
+  iTime: 0,
+  iMouse: [0, 0],
+  iMouseLeftDown: 0,
+  iResolution: [0, 0],
+}
+
+function initializeWebGL(
+  canvas: HTMLCanvasElement,
+  vertexSource: string,
+  fragmentSource: string,
+  customUniforms?: Record<string, UniformValue>,
+): WebGLState {
   // Try WebGL2 first, fall back to WebGL1
   const gl = canvas.getContext("webgl2") || canvas.getContext("webgl")
   if (!gl) {
     throw new Error("WebGL not supported")
   }
 
-  const program = createShaderProgram(gl, vertexSource, fragmentSource)
+  // Inject uniform declarations if marker is present
+  const processedVertex = injectUniformDeclarations(vertexSource, customUniforms, DEFAULT_UNIFORM_TYPES)
+  const processedFragment = injectUniformDeclarations(fragmentSource, customUniforms, DEFAULT_UNIFORM_TYPES)
+
+  console.log(processedVertex)
+  console.log(processedFragment)
+
+  const program = createShaderProgram(gl, processedVertex, processedFragment)
 
   // Create position buffer for full-screen quad
   const positionBuffer = gl.createBuffer()
@@ -184,7 +203,7 @@ export function useWebGL(options: UseWebGLOptions) {
 
     const initialize = () => {
       try {
-        stateRef.current = initializeWebGL(canvas, vertexRef.current, fragmentRef.current)
+        stateRef.current = initializeWebGL(canvas, vertexRef.current, fragmentRef.current, uniformsRef.current)
         elapsedTimeRef.current = 0
         lastFrameTimeRef.current = 0
         contextLostRef.current = false
