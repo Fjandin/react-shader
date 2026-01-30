@@ -103,7 +103,7 @@ void main() {
   // uv += ripple * 0.2 * smoothstep(0.5, 0.0, dist);
 
   for (int i = 0; i < ripples_count; i++) {
-    uv += RippleDistortion(uv, ripples[i].xy, ripples[i].z, ripples[i].w, 0.02);
+    uv += RippleDistortion(uv, ripples[i].xy, ripples[i].z, ripples[i].w, 0.03);
   }
   
   vec3 color = Circles(uv, iterations, fractMultiplier, iTime, waveLength, edgeBlur, contrast);

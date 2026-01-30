@@ -18,6 +18,8 @@ export function ReactShader({
   fullscreen = false,
   timeScale = 1,
   onFrame,
+  onClick,
+  onMouseMove,
 }: ReactShaderProps) {
   const [error, setError] = useState<string | null>(null)
 
@@ -46,6 +48,8 @@ export function ReactShader({
     uniforms,
     onError: handleError,
     onFrame: handleFrame,
+    onClick,
+    onMouseMove,
     timeScale,
   })
 

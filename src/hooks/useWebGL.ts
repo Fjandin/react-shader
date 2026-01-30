@@ -8,6 +8,7 @@ export interface FrameInfo {
   time: number
   resolution: [number, number]
   mouse: [number, number]
+  mouseNormalized: [number, number]
   mouseLeftDown: boolean
 }
 
@@ -17,6 +18,8 @@ interface UseWebGLOptions {
   uniforms?: Record<string, UniformValue>
   onError?: (error: Error) => void
   onFrame?: (info: FrameInfo) => void
+  onClick?: (info: FrameInfo) => void
+  onMouseMove?: (info: FrameInfo) => void
   running?: boolean
   timeScale?: number
 }
@@ -34,6 +37,7 @@ interface WebGLState {
 const DEFAULT_UNIFORM_TYPES: Record<string, UniformValue> = {
   iTime: 0,
   iMouse: [0, 0],
+  iMouseNormalized: [0, 0],
   iMouseLeftDown: 0,
   iResolution: [0, 0],
 }
@@ -97,12 +101,15 @@ export function useWebGL(options: UseWebGLOptions) {
   const elapsedTimeRef = useRef<number>(0)
   const lastFrameTimeRef = useRef<number>(0)
   const mouseRef = useRef<[number, number]>([0, 0])
+  const mouseNormalizedRef = useRef<[number, number]>([0, 0])
   const mouseLeftDownRef = useRef<boolean>(false)
   const canvasRectRef = useRef<DOMRect | null>(null)
   const contextLostRef = useRef<boolean>(false)
   const uniformsRef = useRef(options.uniforms)
   const onErrorRef = useRef(options.onError)
   const onFrameRef = useRef(options.onFrame)
+  const onClickRef = useRef(options.onClick)
+  const onMouseMoveRef = useRef(options.onMouseMove)
   const timeScaleRef = useRef(options.timeScale ?? 1)
   const vertexRef = useRef(options.vertex)
   const fragmentRef = useRef(options.fragment)
@@ -111,6 +118,8 @@ export function useWebGL(options: UseWebGLOptions) {
   uniformsRef.current = options.uniforms
   onErrorRef.current = options.onError
   onFrameRef.current = options.onFrame
+  onClickRef.current = options.onClick
+  onMouseMoveRef.current = options.onMouseMove
   timeScaleRef.current = options.timeScale ?? 1
   vertexRef.current = options.vertex
   fragmentRef.current = options.fragment
@@ -163,10 +172,16 @@ export function useWebGL(options: UseWebGLOptions) {
     gl.bindBuffer(gl.ARRAY_BUFFER, state.positionBuffer)
     gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0)
 
-    // Set default uniforms
+    // Set default uniforms (aspect-correct: shorter axis is -0.5 to 0.5)
+    const minDimension = Math.min(canvas.width, canvas.height) || 1
+    mouseNormalizedRef.current = [
+      (mouseRef.current[0] - canvas.width / 2) / minDimension,
+      (mouseRef.current[1] - canvas.height / 2) / minDimension,
+    ]
     const defaultUniforms: Record<string, UniformValue> = {
       iTime: elapsedTime,
       iMouse: mouseRef.current,
+      iMouseNormalized: mouseNormalizedRef.current,
       iMouseLeftDown: mouseLeftDownRef.current ? 1.0 : 0.0,
       iResolution: [canvas.width, canvas.height],
     }
@@ -188,6 +203,7 @@ export function useWebGL(options: UseWebGLOptions) {
         time: elapsedTime,
         resolution: [canvas.width, canvas.height],
         mouse: mouseRef.current,
+        mouseNormalized: mouseNormalizedRef.current,
         mouseLeftDown: mouseLeftDownRef.current,
       })
     }
@@ -272,6 +288,24 @@ export function useWebGL(options: UseWebGLOptions) {
       // Y is inverted: WebGL convention has Y=0 at bottom, DOM has Y=0 at top
       const y = (rect.height - (event.clientY - rect.top)) * dpr
       mouseRef.current = [x, y]
+
+      if (onMouseMoveRef.current) {
+        // Update normalized mouse position
+        const minDimension = Math.min(canvas.width, canvas.height) || 1
+        mouseNormalizedRef.current = [
+          (mouseRef.current[0] - canvas.width / 2) / minDimension,
+          (mouseRef.current[1] - canvas.height / 2) / minDimension,
+        ]
+
+        onMouseMoveRef.current({
+          deltaTime: 0,
+          time: elapsedTimeRef.current,
+          resolution: [canvas.width, canvas.height],
+          mouse: mouseRef.current,
+          mouseNormalized: mouseNormalizedRef.current,
+          mouseLeftDown: mouseLeftDownRef.current,
+        })
+      }
     }
 
     const handleMouseDown = (event: MouseEvent) => {
@@ -286,9 +320,23 @@ export function useWebGL(options: UseWebGLOptions) {
       }
     }
 
+    const handleClick = () => {
+      if (!onClickRef.current) return
+
+      onClickRef.current({
+        deltaTime: 0,
+        time: elapsedTimeRef.current,
+        resolution: [canvas.width, canvas.height],
+        mouse: mouseRef.current,
+        mouseNormalized: mouseNormalizedRef.current,
+        mouseLeftDown: mouseLeftDownRef.current,
+      })
+    }
+
     window.addEventListener("mousemove", handleMouseMove)
     window.addEventListener("mousedown", handleMouseDown)
     window.addEventListener("mouseup", handleMouseUp)
+    canvas.addEventListener("click", handleClick)
 
     return () => {
       resizeObserver.disconnect()
@@ -296,6 +344,7 @@ export function useWebGL(options: UseWebGLOptions) {
       window.removeEventListener("mousemove", handleMouseMove)
       window.removeEventListener("mousedown", handleMouseDown)
       window.removeEventListener("mouseup", handleMouseUp)
+      canvas.removeEventListener("click", handleClick)
     }
   }, [])
 

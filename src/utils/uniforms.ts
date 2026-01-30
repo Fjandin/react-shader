@@ -2,6 +2,8 @@ import type { FloatArray, UniformValue, Vec2, Vec2Array, Vec3, Vec3Array, Vec4, 
 
 type WebGLContext = WebGLRenderingContext | WebGL2RenderingContext
 
+export const MAX_ARRAY_LENGTH = 100
+
 function isVec2(value: UniformValue): value is Vec2 {
   return Array.isArray(value) && value.length === 2 && typeof value[0] === "number"
 }
@@ -100,16 +102,16 @@ function getUniformType(value: UniformValue): string {
     return "float"
   }
   if (isVec4Array(value)) {
-    return `vec4[${value.length}]`
+    return `vec4[${MAX_ARRAY_LENGTH}]`
   }
   if (isVec3Array(value)) {
-    return `vec3[${value.length}]`
+    return `vec3[${MAX_ARRAY_LENGTH}]`
   }
   if (isVec2Array(value)) {
-    return `vec2[${value.length}]`
+    return `vec2[${MAX_ARRAY_LENGTH}]`
   }
   if (isFloatArray(value)) {
-    return `float[${value.length}]`
+    return `float[${MAX_ARRAY_LENGTH}]`
   }
   if (isVec4(value)) {
     return "vec4"

@@ -19,11 +19,14 @@ export interface ReactShaderProps {
   fullscreen?: boolean
   timeScale?: number
   onFrame?: (info: FrameInfo) => void
+  onClick?: (info: FrameInfo) => void
+  onMouseMove?: (info: FrameInfo) => void
 }
 
 export interface DefaultUniforms {
   iTime: number
   iMouse: Vec2
+  iMouseNormalized: Vec2
   iMouseLeftDown: number
   iResolution: Vec2
 }

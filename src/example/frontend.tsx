@@ -5,10 +5,12 @@
  * It is included in `src/index.html`.
  */
 
-import { StrictMode, useState } from "react"
+import { StrictMode, useCallback, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import "./style.css"
+import type { FrameInfo } from "../hooks/useWebGL"
 import { ReactShader } from "../ReactShader"
+import type { Vec4, Vec4Array } from "../types"
 import { fragment } from "./shader"
 
 // biome-ignore lint/style/noNonNullAssertion: Allow
@@ -30,42 +32,81 @@ if (import.meta.hot) {
 }
 
 export function App() {
-  const [rippleRadius, setRippleRadius] = useState(0)
-  const [rippleIntensity, setRippleIntensity] = useState(1)
-  const [iTime2, setITime2] = useState(0)
+  const [ripples, setRipples] = useState<Vec4Array>([[0, 0, 0, 0]])
+  const lastMouseMoveRef = useRef<number>(0)
+
+  const onFrame = useCallback(
+    (info: FrameInfo) => {
+      const newRipples = []
+      let i = -1
+      for (const ripple of ripples) {
+        i++
+        if (i === 0) {
+          newRipples.push([0, 0, 0, 0] as Vec4)
+          continue
+        }
+
+        ripple[2] += info.deltaTime * 0.5
+        ripple[3] = Math.abs(ripple[2] - 1)
+        if (ripple[2] <= 1) {
+          newRipples.push(ripple)
+        }
+      }
+      setRipples(newRipples)
+    },
+    [ripples],
+  )
+  const onMouseMove = useCallback(
+    (info: FrameInfo) => {
+      const now = Date.now()
+      if (now - lastMouseMoveRef.current < 100) return
+      lastMouseMoveRef.current = now
+      // console.log(info.mouseNormalized)
+      setRipples([...ripples, [info.mouseNormalized[0], info.mouseNormalized[1], 0, 1]])
+    },
+    [ripples],
+  )
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
       <div
-        style={{ position: "absolute", top: 0, left: 0, fontSize: "20px", fontWeight: "bold", marginBottom: "100px" }}
+        style={{
+          //display: "none",
+          position: "absolute",
+          top: 10,
+          left: 10,
+          fontSize: "14px",
+          fontWeight: "bold",
+          marginBottom: "100px",
+        }}
       >
-        <div>{rippleRadius}</div>
-        <div>/</div>
-        <div>{rippleIntensity}</div>
+        {ripples.map((ripple, index) => (
+          <div key={ripple[0] + ripple[1] + index.toString()}>
+            {Math.round(ripple[0] * 100) / 100}, {Math.round(ripple[1] * 100) / 100},{" "}
+            {Math.round(ripple[2] * 100) / 100}, {Math.round(ripple[3] * 100) / 100}
+          </div>
+        ))}
       </div>
       <ReactShader
         fragment={fragment}
-        timeScale={0.5}
+        timeScale={0.1}
+        fullscreen={true}
         uniforms={{
-          iTime2: 0,
           scale: 1,
           iterations: 2,
           fractMultiplier: 2,
           waveLength: 10,
           edgeBlur: 0.01,
           contrast: 2,
-          noiseScale: 0.1,
-          noiseMultiplier: 0.2,
-          ripples: [[0.1, 0.1, rippleRadius * 0.5, rippleIntensity * 0.5]],
+          noiseScale: 1,
+          noiseMultiplier: 0.5,
+          ripples: ripples.map((ripple) => [ripple[0], ripple[1], ripple[2] * 0.5, ripple[3] * 0.5] as Vec4),
         }}
-        onFrame={(info) => {
-          setITime2(iTime2 + info.deltaTime * 0.2)
-          let newRippleTime = rippleRadius + info.deltaTime * 0.2
-          if (newRippleTime > 1) {
-            newRippleTime = newRippleTime - 1
-          }
-          setRippleIntensity(Math.abs(newRippleTime - 1))
-          setRippleRadius(newRippleTime)
+        onFrame={onFrame}
+        onClick={(info) => {
+          console.log(info.mouseNormalized)
+          setRipples([...ripples, [info.mouseNormalized[0], info.mouseNormalized[1], 0, 1]])
         }}
+        onMouseMove={onMouseMove}
       />
     </div>
   )
