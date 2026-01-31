@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react"
 import type { FrameInfo, UniformValue } from "../types"
 import { createShaderProgram } from "../utils/shader"
+import { cleanupTextures, createTextureManager, type TextureManager } from "../utils/textures"
 import { createUniformLocationCache, injectUniformDeclarations, setUniforms } from "../utils/uniforms"
 
 interface UseWebGLOptions {
@@ -24,6 +25,7 @@ interface WebGLState {
   positionBuffer: WebGLBuffer
   positionAttributeLocation: number
   uniformLocationCache: Map<string, WebGLUniformLocation | null>
+  textureManager: TextureManager
 }
 
 const DEFAULT_UNIFORM_TYPES: Record<string, UniformValue> = {
@@ -75,10 +77,12 @@ function initializeWebGL(
     positionBuffer,
     positionAttributeLocation,
     uniformLocationCache: createUniformLocationCache(),
+    textureManager: createTextureManager(gl),
   }
 }
 
 function cleanupWebGL(gl: WebGLContext, state: WebGLState): void {
+  cleanupTextures(gl, state.textureManager)
   gl.deleteBuffer(state.positionBuffer)
   gl.deleteProgram(state.program)
 }
@@ -141,7 +145,7 @@ export function useWebGL(options: UseWebGLOptions) {
 
     elapsedTimeRef.current += deltaTime * timeScaleRef.current
 
-    const { gl, program, positionAttributeLocation, uniformLocationCache } = state
+    const { gl, program, positionAttributeLocation, uniformLocationCache, textureManager } = state
     const elapsedTime = elapsedTimeRef.current
 
     // Handle canvas resize with high-DPI support (use cached DPR)
@@ -184,7 +188,7 @@ export function useWebGL(options: UseWebGLOptions) {
     defaultUniforms.iResolution = [canvas.width, canvas.height]
 
     // Set uniforms in single call, with custom uniforms overriding defaults
-    setUniforms(gl, program, { ...defaultUniforms, ...uniformsRef.current }, uniformLocationCache)
+    setUniforms(gl, program, { ...defaultUniforms, ...uniformsRef.current }, uniformLocationCache, textureManager)
 
     // Draw
     gl.drawArrays(gl.TRIANGLES, 0, 6)

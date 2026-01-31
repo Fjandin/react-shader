@@ -1,4 +1,5 @@
 import type { FloatArray, UniformValue, Vec2, Vec2Array, Vec3, Vec3Array, Vec4, Vec4Array } from "../types"
+import { bindTextureUniform, isTexture, type TextureManager } from "./textures"
 
 type WebGLContext = WebGLRenderingContext | WebGL2RenderingContext
 
@@ -69,8 +70,17 @@ export function setUniforms(
   program: WebGLProgram,
   uniforms: Record<string, UniformValue>,
   locationCache: Map<string, WebGLUniformLocation | null>,
+  textureManager?: TextureManager,
 ): void {
   for (const [name, value] of Object.entries(uniforms)) {
+    // Handle texture uniforms separately
+    if (isTexture(value)) {
+      if (textureManager) {
+        bindTextureUniform(gl, program, name, value, textureManager, locationCache)
+      }
+      continue
+    }
+
     let location = locationCache.get(name)
     if (location === undefined) {
       location = getUniformLocation(gl, program, name)
@@ -98,6 +108,9 @@ export function createUniformLocationCache(): Map<string, WebGLUniformLocation |
 }
 
 function getUniformType(value: UniformValue): string {
+  if (isTexture(value)) {
+    return "sampler2D"
+  }
   if (typeof value === "number") {
     return "float"
   }
