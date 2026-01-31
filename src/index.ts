@@ -1,4 +1,6 @@
 export { ReactShader } from "./ReactShader"
+export { generateColorPaletteFunction } from "./shaders/color-palette"
+export { generateSimplexNoiseFunction } from "./shaders/simplex-noise"
 export type {
   DefaultUniforms,
   FloatArray,
@@ -12,4 +14,3 @@ export type {
   Vec4,
   Vec4Array,
 } from "./types"
-export { generateUniformDeclarations } from "./utils/uniforms"
