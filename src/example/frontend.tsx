@@ -10,7 +10,7 @@ import { createRoot } from "react-dom/client"
 import "./style.css"
 import type { FrameInfo } from "../hooks/useWebGL"
 import { ReactShader } from "../ReactShader"
-import type { Vec4, Vec4Array } from "../types"
+import type { Vec2, Vec2Array, Vec4, Vec4Array } from "../types"
 import { log } from "./lib/logger"
 import { fragment } from "./shader"
 
@@ -33,6 +33,8 @@ if (import.meta.hot) {
 }
 
 export function App() {
+  const mouseTrailRef = useRef<Vec2Array>([[0, 0]])
+  const [mouseTrail, setMouseTrail] = useState<Vec2Array>([[0, 0]])
   const ripplesRef = useRef<Vec4Array>([[0, 0, 0, 0]])
   const [ripples, setRipples] = useState<Vec4Array>([[0, 0, 0, 0]])
   const lastMouseMoveRef = useRef<number>(0)
@@ -40,9 +42,11 @@ export function App() {
   const onMouseMove = useCallback((info: FrameInfo) => {
     if (!info.mouseLeftDown) return
     const now = Date.now()
-    if (now - lastMouseMoveRef.current < 200) return
+    if (now - lastMouseMoveRef.current < 100) return
     lastMouseMoveRef.current = now
+    const newMouseTrail = [info.mouseNormalized[0], info.mouseNormalized[1]] as Vec2
     const newRipple = [info.mouseNormalized[0], info.mouseNormalized[1], 0, 1] as Vec4
+    mouseTrailRef.current = [...mouseTrailRef.current, newMouseTrail]
     ripplesRef.current = [...ripplesRef.current, newRipple]
     log("newRipple", newRipple)
   }, [])
@@ -54,6 +58,7 @@ export function App() {
   }, [])
 
   const onFrame = useCallback((info: FrameInfo) => {
+    const maxMouseTrailLength = 10
     const newRipples = []
     let i = -1
     for (const ripple of ripplesRef.current) {
@@ -63,17 +68,18 @@ export function App() {
         continue
       }
 
-      ripple[2] += info.deltaTime * 0.5
+      ripple[2] += info.deltaTime * 0.2
       ripple[3] = Math.abs(ripple[2] - 1)
       if (ripple[2] <= 1) {
         newRipples.push(ripple)
       }
     }
+    setMouseTrail(mouseTrailRef.current.slice(-maxMouseTrailLength))
     setRipples(newRipples)
   }, [])
 
   return (
-    <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
+    <div style={{ width: "100vw", height: "100vh", position: "relative", cursor: "none" }}>
       {/* <div
         style={{
           //display: "none",
@@ -100,12 +106,13 @@ export function App() {
           scale: 1,
           iterations: 2,
           fractMultiplier: 1,
-          waveLength: 10,
+          waveLength: 30,
           edgeBlur: 0.01,
-          contrast: 2,
+          contrast: 1,
           noiseScale: 1,
           noiseMultiplier: 0.5,
-          ripples: ripples.map((ripple) => [ripple[0], ripple[1], ripple[2] * 0.5, ripple[3] * 0.5] as Vec4),
+          ripples: ripples.map((ripple) => [ripple[0], ripple[1], ripple[2], ripple[3] * 0.5] as Vec4),
+          mouseTrail,
         }}
         onFrame={onFrame}
         onClick={onClick}

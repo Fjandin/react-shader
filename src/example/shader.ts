@@ -63,6 +63,8 @@ void main() {
   // Aspect-correct UVs: divide by height only to keep circles round
   vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution) / iResolution.y * scale;
 
+  vec2 uv0 = uv;
+
   // uv = cartesianToPolar(uv, iTime * 10.0);
 
   // iMouse uses same coordinate system as gl_FragCoord (Y=0 at bottom)
@@ -74,13 +76,21 @@ void main() {
 
   float dist = length(uv - mouse);
 
-  uv += noiseValue * 0.1;
+  
 
   for (int i = 0; i < ripples_count; i++) {
     uv += RippleDistortion(uv, ripples[i].xy, ripples[i].z, ripples[i].w, 0.03);
   }
+
+  uv += noiseValue * 0.1;
   
   vec3 color = Circles(uv, iterations, fractMultiplier, iTime, waveLength, edgeBlur, contrast);
+
+  // Small white circle at mouse position
+ 
+  float mouseDist = length(uv0 - mouse);
+  float circle = smoothstep(0.02, 0.015, mouseDist);
+  color = mix(color, vec3(1.0), circle);
 
   fragColor = vec4(color, 1.0);
 }`
