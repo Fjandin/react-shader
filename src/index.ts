@@ -2,6 +2,7 @@ export { ReactShader } from "./ReactShader"
 export type {
   DefaultUniforms,
   FloatArray,
+  FrameInfo,
   ReactShaderProps,
   UniformValue,
   Vec2,

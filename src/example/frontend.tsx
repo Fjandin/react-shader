@@ -8,9 +8,8 @@
 import { StrictMode, useCallback, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import "./style.css"
-import type { FrameInfo } from "../hooks/useWebGL"
 import { ReactShader } from "../ReactShader"
-import type { Vec2, Vec2Array, Vec4, Vec4Array } from "../types"
+import type { FrameInfo, Vec2, Vec2Array, Vec4, Vec4Array } from "../types"
 import { log } from "./lib/logger"
 import { fragment } from "./shader"
 

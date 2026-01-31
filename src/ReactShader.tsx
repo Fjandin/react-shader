@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
-import { type FrameInfo, useWebGL } from "./hooks/useWebGL"
-import type { ReactShaderProps } from "./types"
+import { useWebGL } from "./hooks/useWebGL"
+import type { FrameInfo, ReactShaderProps } from "./types"
 
 const DEFAULT_VERTEX = `#version 300 es
 in vec2 a_position;

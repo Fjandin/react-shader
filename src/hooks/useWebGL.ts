@@ -1,16 +1,7 @@
 import { useCallback, useEffect, useRef } from "react"
-import type { UniformValue } from "../types"
+import type { FrameInfo, UniformValue } from "../types"
 import { createShaderProgram } from "../utils/shader"
 import { createUniformLocationCache, injectUniformDeclarations, setUniforms } from "../utils/uniforms"
-
-export interface FrameInfo {
-  deltaTime: number
-  time: number
-  resolution: [number, number]
-  mouse: [number, number]
-  mouseNormalized: [number, number]
-  mouseLeftDown: boolean
-}
 
 interface UseWebGLOptions {
   fragment: string
