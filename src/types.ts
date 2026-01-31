@@ -7,7 +7,38 @@ export type Vec2Array = Vec2[]
 export type Vec3Array = Vec3[]
 export type Vec4Array = Vec4[]
 
-export type UniformValue = number | Vec2 | Vec3 | Vec4 | FloatArray | Vec2Array | Vec3Array | Vec4Array
+export type TextureSource =
+  | HTMLImageElement
+  | HTMLCanvasElement
+  | HTMLVideoElement
+  | ImageBitmap
+  | ImageData
+  | OffscreenCanvas
+
+export type TextureWrap = "repeat" | "clamp" | "mirror"
+export type TextureMinFilter = "nearest" | "linear" | "mipmap"
+export type TextureMagFilter = "nearest" | "linear"
+
+export interface TextureOptions {
+  source: TextureSource
+  wrapS?: TextureWrap
+  wrapT?: TextureWrap
+  minFilter?: TextureMinFilter
+  magFilter?: TextureMagFilter
+  flipY?: boolean
+}
+
+export type UniformValue =
+  | number
+  | Vec2
+  | Vec3
+  | Vec4
+  | FloatArray
+  | Vec2Array
+  | Vec3Array
+  | Vec4Array
+  | TextureSource
+  | TextureOptions
 
 export interface FrameInfo {
   deltaTime: number
