@@ -76,51 +76,11 @@ void main() {
 
   uv += noiseValue * 0.1;
 
-  // for (int i = 0; i < ripples_count; i++) {
-  //   vec4 ripple = ripples[i];
-  //   vec2 ripplePos = ripple.xy;
-  //   float intensity = ripple.z;
-  //   float radius = ripple.w;
-
-  //   vec2 toRipple = uv - ripplePos;
-  //   float dist = length(toRipple);
-
-  //   // Wave pattern radiating outward
-  //   float wave = sin(dist * 30.0 - iTime2 * 4.0);
-
-  //   // Falloff based on radius
-  //   float falloff = smoothstep(radius, 0.0, dist);
-
-  //   // Displace UV along the direction from ripple center
-  //   vec2 dir = dist > 0.001 ? normalize(toRipple) : vec2(0.0);
-  //   uv += dir * wave * intensity * falloff;
-  // }
-  // for (int i = 0; i < ripples_count; i++) {
-  //   float ripple = sin(dist * 30.0 - iTime * 4.0) * 0.5 + 0.5;
-  // }
-  
-  // ripple *= iMouseLeftDown;
-  // uv += ripple * 0.2 * smoothstep(0.5, 0.0, dist);
-
   for (int i = 0; i < ripples_count; i++) {
     uv += RippleDistortion(uv, ripples[i].xy, ripples[i].z, ripples[i].w, 0.03);
   }
   
   vec3 color = Circles(uv, iterations, fractMultiplier, iTime, waveLength, edgeBlur, contrast);
-
-  // Animated gradient with mouse interaction
-
-  // vec3 color = vec3(
-  //   sin(uv.x * 6.0 + iTime) * 0.5 + 0.5,
-  //   sin(uv.y * 6.0 + iTime * 1.3) * 0.5 + 0.5,
-  //   sin((uv.x + uv.y) * 4.0 + iTime * 0.7) * 0.5 + 0.5
-  // );
-
-  // Add ripple effect from mouse position
-  // float ripple = sin(dist * 30.0 - iTime * 4.0) * 0.5 + 0.5;
-  // color += ripple * 0.2 * smoothstep(0.5, 0.0, dist);
-
-  // color = vec3(1.0, 1.0, 1.0) - color;
 
   fragColor = vec4(color, 1.0);
 }`

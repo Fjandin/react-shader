@@ -58,9 +58,6 @@ function initializeWebGL(
   const processedVertex = injectUniformDeclarations(vertexSource, customUniforms, DEFAULT_UNIFORM_TYPES)
   const processedFragment = injectUniformDeclarations(fragmentSource, customUniforms, DEFAULT_UNIFORM_TYPES)
 
-  console.log(processedVertex)
-  console.log(processedFragment)
-
   const program = createShaderProgram(gl, processedVertex, processedFragment)
 
   // Create position buffer for full-screen quad
@@ -289,23 +286,23 @@ export function useWebGL(options: UseWebGLOptions) {
       const y = (rect.height - (event.clientY - rect.top)) * dpr
       mouseRef.current = [x, y]
 
-      if (onMouseMoveRef.current) {
-        // Update normalized mouse position
-        const minDimension = Math.min(canvas.width, canvas.height) || 1
-        mouseNormalizedRef.current = [
-          (mouseRef.current[0] - canvas.width / 2) / minDimension,
-          (mouseRef.current[1] - canvas.height / 2) / minDimension,
-        ]
+      // Update normalized mouse position
+      const minDimension = Math.min(canvas.width, canvas.height) || 1
+      mouseNormalizedRef.current = [
+        (mouseRef.current[0] - canvas.width / 2) / minDimension,
+        (mouseRef.current[1] - canvas.height / 2) / minDimension,
+      ]
 
-        onMouseMoveRef.current({
-          deltaTime: 0,
-          time: elapsedTimeRef.current,
-          resolution: [canvas.width, canvas.height],
-          mouse: mouseRef.current,
-          mouseNormalized: mouseNormalizedRef.current,
-          mouseLeftDown: mouseLeftDownRef.current,
-        })
-      }
+      //if (onMouseMoveRef.current) {
+      onMouseMoveRef.current?.({
+        deltaTime: 0,
+        time: elapsedTimeRef.current,
+        resolution: [canvas.width, canvas.height],
+        mouse: mouseRef.current,
+        mouseNormalized: mouseNormalizedRef.current,
+        mouseLeftDown: mouseLeftDownRef.current,
+      })
+      //}
     }
 
     const handleMouseDown = (event: MouseEvent) => {

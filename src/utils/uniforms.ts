@@ -153,6 +153,5 @@ export function injectUniformDeclarations(
 
   const allUniforms = { ...defaultUniforms, ...customUniforms }
   const declarations = generateUniformDeclarations(allUniforms)
-  console.log(declarations)
   return shaderSource.replace(UNIFORM_MARKER, declarations)
 }
