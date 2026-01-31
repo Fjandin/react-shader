@@ -10,6 +10,8 @@ interface UseWebGLOptions {
   onError?: (error: Error) => void
   onFrame?: (info: FrameInfo) => void
   onClick?: (info: FrameInfo) => void
+  onMouseDown?: (info: FrameInfo) => void
+  onMouseUp?: (info: FrameInfo) => void
   onMouseMove?: (info: FrameInfo) => void
   timeScale?: number
 }
@@ -96,6 +98,8 @@ export function useWebGL(options: UseWebGLOptions) {
   const onErrorRef = useRef(options.onError)
   const onFrameRef = useRef(options.onFrame)
   const onClickRef = useRef(options.onClick)
+  const onMouseDownRef = useRef(options.onMouseDown)
+  const onMouseUpRef = useRef(options.onMouseUp)
   const onMouseMoveRef = useRef(options.onMouseMove)
   const timeScaleRef = useRef(options.timeScale ?? 1)
   const vertexRef = useRef(options.vertex)
@@ -116,6 +120,8 @@ export function useWebGL(options: UseWebGLOptions) {
   onErrorRef.current = options.onError
   onFrameRef.current = options.onFrame
   onClickRef.current = options.onClick
+  onMouseDownRef.current = options.onMouseDown
+  onMouseUpRef.current = options.onMouseUp
   onMouseMoveRef.current = options.onMouseMove
   timeScaleRef.current = options.timeScale ?? 1
   vertexRef.current = options.vertex
@@ -132,6 +138,8 @@ export function useWebGL(options: UseWebGLOptions) {
     // Calculate delta time
     const deltaTime = lastFrameTimeRef.current === 0 ? 0 : (time - lastFrameTimeRef.current) / 1000
     lastFrameTimeRef.current = time
+
+    elapsedTimeRef.current += deltaTime * timeScaleRef.current
 
     const { gl, program, positionAttributeLocation, uniformLocationCache } = state
     const elapsedTime = elapsedTimeRef.current
@@ -303,12 +311,28 @@ export function useWebGL(options: UseWebGLOptions) {
       if (event.button === 0) {
         mouseLeftDownRef.current = true
       }
+      onMouseDownRef.current?.({
+        deltaTime: 0,
+        time: elapsedTimeRef.current,
+        resolution: [canvas.width, canvas.height],
+        mouse: mouseRef.current,
+        mouseNormalized: mouseNormalizedRef.current,
+        mouseLeftDown: mouseLeftDownRef.current,
+      })
     }
 
     const handleMouseUp = (event: MouseEvent) => {
       if (event.button === 0) {
         mouseLeftDownRef.current = false
       }
+      onMouseUpRef.current?.({
+        deltaTime: 0,
+        time: elapsedTimeRef.current,
+        resolution: [canvas.width, canvas.height],
+        mouse: mouseRef.current,
+        mouseNormalized: mouseNormalizedRef.current,
+        mouseLeftDown: mouseLeftDownRef.current,
+      })
     }
 
     const handleClick = () => {
