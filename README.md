@@ -48,8 +48,7 @@ function App() {
 | `fragment` | `string` | Yes | - | GLSL fragment shader source code |
 | `vertex` | `string` | No | Default quad shader | GLSL vertex shader source code |
 | `uniforms` | `Record<string, UniformValue>` | No | `{}` | Custom uniform values |
-| `className` | `string` | No | - | CSS class name for the container |
-| `debug` | `boolean` | No | `false` | Show debug overlay with resolution and mouse info |
+| `className` | `string` | No | - | CSS class name for the canvas |
 | `fullscreen` | `boolean` | No | `false` | Render as fixed fullscreen overlay |
 | `timeScale` | `number` | No | `1` | Scale factor for elapsed time |
 | `onFrame` | `(info: FrameInfo) => void` | No | - | Callback invoked on each frame |
@@ -175,6 +174,7 @@ The `FrameInfo` object contains:
 - `time` - Total elapsed time in seconds
 - `resolution` - Canvas resolution as `[width, height]`
 - `mouse` - Mouse position as `[x, y]`
+- `mouseNormalized` - Aspect-corrected mouse position as `[x, y]`
 - `mouseLeftDown` - Whether left mouse button is pressed
 
 ## TypeScript
@@ -215,11 +215,12 @@ const declarations = generateUniformDeclarations({
 ## Features
 
 - WebGL2 with WebGL1 fallback
-- High-DPI display support via `devicePixelRatio`
+- High-DPI display support with automatic DPR change detection
 - Automatic canvas resizing
 - Shader compilation error display
 - Context loss/restoration handling
 - Mouse tracking with WebGL coordinate convention
+- Optimized render loop with minimal per-frame allocations
 
 ## Requirements
 

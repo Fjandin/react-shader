@@ -11,7 +11,6 @@ interface UseWebGLOptions {
   onFrame?: (info: FrameInfo) => void
   onClick?: (info: FrameInfo) => void
   onMouseMove?: (info: FrameInfo) => void
-  running?: boolean
   timeScale?: number
 }
 
@@ -101,6 +100,16 @@ export function useWebGL(options: UseWebGLOptions) {
   const timeScaleRef = useRef(options.timeScale ?? 1)
   const vertexRef = useRef(options.vertex)
   const fragmentRef = useRef(options.fragment)
+  const dprRef = useRef(window.devicePixelRatio || 1)
+
+  // Reusable uniforms object to avoid per-frame allocations
+  const defaultUniformsRef = useRef<Record<string, UniformValue>>({
+    iTime: 0,
+    iMouse: [0, 0],
+    iMouseNormalized: [0, 0],
+    iMouseLeftDown: 0,
+    iResolution: [0, 0],
+  })
 
   // Keep refs updated
   uniformsRef.current = options.uniforms
@@ -120,17 +129,15 @@ export function useWebGL(options: UseWebGLOptions) {
     const canvas = canvasRef.current
     if (!state || !canvas) return
 
-    // Calculate delta time and increment elapsed time if running
+    // Calculate delta time
     const deltaTime = lastFrameTimeRef.current === 0 ? 0 : (time - lastFrameTimeRef.current) / 1000
     lastFrameTimeRef.current = time
-
-    elapsedTimeRef.current += deltaTime * timeScaleRef.current
 
     const { gl, program, positionAttributeLocation, uniformLocationCache } = state
     const elapsedTime = elapsedTimeRef.current
 
-    // Handle canvas resize with high-DPI support
-    const dpr = window.devicePixelRatio || 1
+    // Handle canvas resize with high-DPI support (use cached DPR)
+    const dpr = dprRef.current
     const displayWidth = canvas.clientWidth
     const displayHeight = canvas.clientHeight
 
@@ -160,26 +167,16 @@ export function useWebGL(options: UseWebGLOptions) {
     gl.bindBuffer(gl.ARRAY_BUFFER, state.positionBuffer)
     gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0)
 
-    // Set default uniforms (aspect-correct: shorter axis is -0.5 to 0.5)
-    const minDimension = Math.min(canvas.width, canvas.height) || 1
-    mouseNormalizedRef.current = [
-      (mouseRef.current[0] - canvas.width / 2) / minDimension,
-      (mouseRef.current[1] - canvas.height / 2) / minDimension,
-    ]
-    const defaultUniforms: Record<string, UniformValue> = {
-      iTime: elapsedTime,
-      iMouse: mouseRef.current,
-      iMouseNormalized: mouseNormalizedRef.current,
-      iMouseLeftDown: mouseLeftDownRef.current ? 1.0 : 0.0,
-      iResolution: [canvas.width, canvas.height],
-    }
+    // Update reusable uniforms object (avoids per-frame allocation)
+    const defaultUniforms = defaultUniformsRef.current
+    defaultUniforms.iTime = elapsedTime
+    defaultUniforms.iMouse = mouseRef.current
+    defaultUniforms.iMouseNormalized = mouseNormalizedRef.current
+    defaultUniforms.iMouseLeftDown = mouseLeftDownRef.current ? 1.0 : 0.0
+    defaultUniforms.iResolution = [canvas.width, canvas.height]
 
-    setUniforms(gl, program, defaultUniforms, uniformLocationCache)
-
-    // Set custom uniforms
-    if (uniformsRef.current) {
-      setUniforms(gl, program, uniformsRef.current, uniformLocationCache)
-    }
+    // Set uniforms in single call, with custom uniforms overriding defaults
+    setUniforms(gl, program, { ...defaultUniforms, ...uniformsRef.current }, uniformLocationCache)
 
     // Draw
     gl.drawArrays(gl.TRIANGLES, 0, 6)
@@ -187,7 +184,7 @@ export function useWebGL(options: UseWebGLOptions) {
     // Call onFrame callback with current frame info
     if (onFrameRef.current) {
       onFrameRef.current({
-        deltaTime: deltaTime,
+        deltaTime,
         time: elapsedTime,
         resolution: [canvas.width, canvas.height],
         mouse: mouseRef.current,
@@ -233,6 +230,13 @@ export function useWebGL(options: UseWebGLOptions) {
       initialize()
     }
 
+    // Listen for DPR changes (e.g., moving window between monitors)
+    const dprMediaQuery = window.matchMedia(`(resolution: ${dprRef.current}dppx)`)
+    const handleDprChange = () => {
+      dprRef.current = window.devicePixelRatio || 1
+    }
+    dprMediaQuery.addEventListener("change", handleDprChange)
+
     // Use type casting so that TypeScript accepts the event signature
     canvas.addEventListener("webglcontextlost", handleContextLost as EventListener)
     canvas.addEventListener("webglcontextrestored", handleContextRestored as EventListener)
@@ -240,6 +244,7 @@ export function useWebGL(options: UseWebGLOptions) {
     initialize()
 
     return () => {
+      dprMediaQuery.removeEventListener("change", handleDprChange)
       canvas.removeEventListener("webglcontextlost", handleContextLost as EventListener)
       canvas.removeEventListener("webglcontextrestored", handleContextRestored as EventListener)
       cancelAnimationFrame(animationFrameRef.current)
@@ -271,7 +276,7 @@ export function useWebGL(options: UseWebGLOptions) {
       const rect = canvasRectRef.current
       if (!rect) return
 
-      const dpr = window.devicePixelRatio || 1
+      const dpr = dprRef.current
       const x = (event.clientX - rect.left) * dpr
       // Y is inverted: WebGL convention has Y=0 at bottom, DOM has Y=0 at top
       const y = (rect.height - (event.clientY - rect.top)) * dpr
@@ -284,7 +289,6 @@ export function useWebGL(options: UseWebGLOptions) {
         (mouseRef.current[1] - canvas.height / 2) / minDimension,
       ]
 
-      //if (onMouseMoveRef.current) {
       onMouseMoveRef.current?.({
         deltaTime: 0,
         time: elapsedTimeRef.current,
@@ -293,7 +297,6 @@ export function useWebGL(options: UseWebGLOptions) {
         mouseNormalized: mouseNormalizedRef.current,
         mouseLeftDown: mouseLeftDownRef.current,
       })
-      //}
     }
 
     const handleMouseDown = (event: MouseEvent) => {

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useWebGL } from "./hooks/useWebGL"
-import type { FrameInfo, ReactShaderProps } from "./types"
+import type { ReactShaderProps } from "./types"
 
 const DEFAULT_VERTEX = `#version 300 es
 in vec2 a_position;
@@ -9,6 +9,28 @@ void main() {
   gl_Position = vec4(a_position, 0.0, 1.0);
 }
 `
+
+// Static styles extracted to module level to avoid re-creation
+const FULLSCREEN_CONTAINER_STYLE: React.CSSProperties = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  width: "100vw",
+  height: "100vh",
+  zIndex: 9000,
+}
+
+const DEFAULT_CONTAINER_STYLE: React.CSSProperties = {
+  position: "relative",
+  width: "100%",
+  height: "100%",
+}
+
+const CANVAS_STYLE: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  height: "100%",
+}
 
 export function ReactShader({
   className,
@@ -28,15 +50,6 @@ export function ReactShader({
     console.error("ReactShader error:", err)
   }, [])
 
-  const handleFrame = useCallback(
-    (info: FrameInfo) => {
-      if (onFrame) {
-        onFrame(info)
-      }
-    },
-    [onFrame],
-  )
-
   // biome-ignore lint/correctness/useExhaustiveDependencies: Clear error when shader props change to allow retry
   useEffect(() => {
     setError(null)
@@ -47,26 +60,16 @@ export function ReactShader({
     vertex,
     uniforms,
     onError: handleError,
-    onFrame: handleFrame,
+    onFrame,
     onClick,
     onMouseMove,
     timeScale,
   })
 
-  const containerStyle: React.CSSProperties = fullscreen
-    ? {
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        zIndex: 9000,
-      }
-    : {
-        position: "relative",
-        width: "100%",
-        height: "100%",
-      }
+  const containerStyle = useMemo(
+    () => (fullscreen ? FULLSCREEN_CONTAINER_STYLE : DEFAULT_CONTAINER_STYLE),
+    [fullscreen],
+  )
 
   if (error) {
     return (
@@ -93,5 +96,5 @@ export function ReactShader({
     )
   }
 
-  return <canvas ref={canvasRef} className={className} style={{ display: "block", width: "100%", height: "100%" }} />
+  return <canvas ref={canvasRef} className={className} style={CANVAS_STYLE} />
 }
