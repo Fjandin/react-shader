@@ -128,6 +128,8 @@ export function App() {
   const [ripples, setRipples] = useState<Vec4Array>([[0, 0, 0, 0]])
   const lastMouseMoveRef = useRef<number>(0)
 
+  const [scale, setScale] = useState(1)
+
   const onMouseMove = useCallback((info: FrameInfo) => {
     if (!info.mouseLeftDown) return
     const now = Date.now()
@@ -167,10 +169,15 @@ export function App() {
     setRipples(newRipples)
   }, [])
 
+  const onMouseWheel = useCallback((info: FrameInfo, wheelDelta: number) => {
+    setScale((prev) => prev + wheelDelta * 0.01)
+  }, [])
+
   return (
     <div
       style={{ width: "100vw", height: "100vh", position: "relative", cursor: showTextureDemo ? "default" : "none" }}
     >
+      <div style={{ position: "absolute", top: 20, left: 20, color: "white", fontSize: "14px" }}>{scale}</div>
       <button
         type="button"
         onClick={() => setShowTextureDemo(!showTextureDemo)}
@@ -198,7 +205,7 @@ export function App() {
           timeScale={0.3}
           fullscreen={true}
           uniforms={{
-            scale: 1,
+            scale,
             iterations: 2,
             fractMultiplier: 1,
             waveLength: 30,
@@ -212,6 +219,7 @@ export function App() {
           onFrame={onFrame}
           onClick={onClick}
           onMouseMove={onMouseMove}
+          onMouseWheel={onMouseWheel}
         />
       )}
     </div>

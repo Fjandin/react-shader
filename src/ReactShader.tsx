@@ -44,6 +44,7 @@ export function ReactShader({
   onMouseMove,
   onMouseDown,
   onMouseUp,
+  onMouseWheel,
 }: ReactShaderProps) {
   const [error, setError] = useState<string | null>(null)
 
@@ -67,6 +68,7 @@ export function ReactShader({
     onMouseMove,
     onMouseDown,
     onMouseUp,
+    onMouseWheel,
     timeScale,
   })
 

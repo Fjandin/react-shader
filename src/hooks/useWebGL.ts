@@ -14,6 +14,7 @@ interface UseWebGLOptions {
   onMouseDown?: (info: FrameInfo) => void
   onMouseUp?: (info: FrameInfo) => void
   onMouseMove?: (info: FrameInfo) => void
+  onMouseWheel?: (info: FrameInfo, wheelDelta: number) => void
   timeScale?: number
 }
 
@@ -105,6 +106,7 @@ export function useWebGL(options: UseWebGLOptions) {
   const onMouseDownRef = useRef(options.onMouseDown)
   const onMouseUpRef = useRef(options.onMouseUp)
   const onMouseMoveRef = useRef(options.onMouseMove)
+  const onMouseWheelRef = useRef(options.onMouseWheel)
   const timeScaleRef = useRef(options.timeScale ?? 1)
   const vertexRef = useRef(options.vertex)
   const fragmentRef = useRef(options.fragment)
@@ -127,6 +129,7 @@ export function useWebGL(options: UseWebGLOptions) {
   onMouseDownRef.current = options.onMouseDown
   onMouseUpRef.current = options.onMouseUp
   onMouseMoveRef.current = options.onMouseMove
+  onMouseWheelRef.current = options.onMouseWheel
   timeScaleRef.current = options.timeScale ?? 1
   vertexRef.current = options.vertex
   fragmentRef.current = options.fragment
@@ -352,11 +355,25 @@ export function useWebGL(options: UseWebGLOptions) {
       })
     }
 
+    const handleMouseWheel = (event: WheelEvent) => {
+      onMouseWheelRef.current?.(
+        {
+          deltaTime: 0,
+          time: elapsedTimeRef.current,
+          resolution: [canvas.width, canvas.height],
+          mouse: mouseRef.current,
+          mouseNormalized: mouseNormalizedRef.current,
+          mouseLeftDown: mouseLeftDownRef.current,
+        },
+        event.deltaY,
+      )
+    }
+
     window.addEventListener("mousemove", handleMouseMove)
     window.addEventListener("mousedown", handleMouseDown)
     window.addEventListener("mouseup", handleMouseUp)
     canvas.addEventListener("click", handleClick)
-
+    window.addEventListener("wheel", handleMouseWheel)
     return () => {
       resizeObserver.disconnect()
       window.removeEventListener("scroll", updateRect)
@@ -364,6 +381,7 @@ export function useWebGL(options: UseWebGLOptions) {
       window.removeEventListener("mousedown", handleMouseDown)
       window.removeEventListener("mouseup", handleMouseUp)
       canvas.removeEventListener("click", handleClick)
+      window.removeEventListener("wheel", handleMouseWheel)
     }
   }, [])
 

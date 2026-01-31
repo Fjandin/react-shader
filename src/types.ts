@@ -60,6 +60,7 @@ export interface ReactShaderProps {
   onMouseMove?: (info: FrameInfo) => void
   onMouseDown?: (info: FrameInfo) => void
   onMouseUp?: (info: FrameInfo) => void
+  onMouseWheel?: (info: FrameInfo, wheelDelta: number) => void
 }
 
 export interface DefaultUniforms {
