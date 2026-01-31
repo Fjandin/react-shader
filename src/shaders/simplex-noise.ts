@@ -117,7 +117,7 @@ export function generateSimplexNoiseFunction() {
                    + dot(m1*m1, vec2( dot( p3, x3 ), dot( p4, x4 ) ) ) ) ;
     }
     
-    float SimplexNoise(vec3 v) {
+    float SimplexNoise3D(vec3 v) {
       const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
       const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
     
