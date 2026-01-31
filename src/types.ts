@@ -27,6 +27,8 @@ export interface ReactShaderProps {
   onFrame?: (info: FrameInfo) => void
   onClick?: (info: FrameInfo) => void
   onMouseMove?: (info: FrameInfo) => void
+  onMouseDown?: (info: FrameInfo) => void
+  onMouseUp?: (info: FrameInfo) => void
 }
 
 export interface DefaultUniforms {
