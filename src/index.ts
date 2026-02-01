@@ -1,4 +1,3 @@
-export { type UseAnimatedStateOptions, useAnimatedState } from "./hooks/useAnimatedState"
 export { useAudio } from "./hooks/useAudio"
 export { ReactShader } from "./ReactShader"
 export { generateColorPaletteFunction } from "./shaders/color-palette"
