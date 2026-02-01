@@ -8,6 +8,7 @@
 import { StrictMode, useCallback, useEffect, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import "./style.css"
+import { useAudio } from ".."
 import { ReactShader } from "../ReactShader"
 import type { FrameInfo, Vec2, Vec2Array, Vec4, Vec4Array } from "../types"
 import { textureFragment } from "./glsl/texture-demo.glsl"
@@ -128,6 +129,12 @@ export function App() {
   const [ripples, setRipples] = useState<Vec4Array>([[0, 0, 0, 0]])
   const lastMouseMoveRef = useRef<number>(0)
 
+  const { levels, start } = useAudio({ source: "display", smoothing: 0.95 })
+
+  // useEffect(() => {
+  //   console.log("levels", levels)
+  // }, [levels])
+
   const [scale, setScale] = useState(1)
 
   const onMouseMove = useCallback((info: FrameInfo) => {
@@ -169,7 +176,7 @@ export function App() {
     setRipples(newRipples)
   }, [])
 
-  const onMouseWheel = useCallback((info: FrameInfo, wheelDelta: number) => {
+  const onMouseWheel = useCallback((_: FrameInfo, wheelDelta: number) => {
     setScale((prev) => prev + wheelDelta * 0.01)
   }, [])
 
@@ -197,6 +204,38 @@ export function App() {
         {showTextureDemo ? "Show Circles Demo" : "Show Texture Demo"}
       </button>
 
+      <button
+        type="button"
+        onClick={() => start()}
+        style={{
+          position: "absolute",
+          top: 20,
+          right: 20,
+          zIndex: 100,
+          padding: "10px 20px",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
+          fontWeight: "bold",
+        }}
+      >
+        Start Audio
+      </button>
+      <div
+        style={{
+          position: "absolute",
+          bottom: 10,
+          left: 10,
+          padding: 10,
+          display: "flex",
+          gap: 5,
+          alignItems: "flex-end",
+        }}
+      >
+        {levels.bands.map((level, index) => (
+          <div key={index.toString()} style={{ width: 10, height: 100 * level, background: "red" }} />
+        ))}
+      </div>
       {showTextureDemo ? (
         <TextureDemo />
       ) : (
@@ -208,13 +247,16 @@ export function App() {
             scale,
             iterations: 2,
             fractMultiplier: 1,
-            waveLength: 30,
-            edgeBlur: 0.01,
+            waveLength: 30 * levels.low,
+            edgeBlur: Math.min(levels.mid * 10, 0.01),
             contrast: 1,
             noiseScale: 1,
-            noiseMultiplier: 0.5,
+            noiseMultiplier: 0,
             ripples: ripples.map((ripple) => [ripple[0], ripple[1], ripple[2], ripple[3] * 0.5] as Vec4),
             mouseTrail,
+            audioHigh: levels.high,
+            audioMid: levels.mid,
+            audioLow: levels.low,
           }}
           onFrame={onFrame}
           onClick={onClick}

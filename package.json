@@ -1,6 +1,6 @@
 {
   "name": "@fjandin/react-shader",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "React component for rendering WebGL shaders",
   "type": "module",
   "main": "./dist/index.cjs",
