@@ -3,6 +3,7 @@ import { useWebGL } from "./hooks/useWebGL"
 import type { ReactShaderProps } from "./types"
 
 const DEFAULT_VERTEX = `#version 300 es
+precision highp float;
 in vec2 a_position;
 
 void main() {
