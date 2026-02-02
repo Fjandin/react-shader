@@ -40,8 +40,10 @@ function createFragmentShader(userCode: string): string {
   return `
 struct Uniforms {
   iTime: f32,
-  _pad0: f32,
+  iMouseLeftDown: f32,
   iResolution: vec2f,
+  iMouse: vec2f,
+  iMouseNormalized: vec2f,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
@@ -51,7 +53,6 @@ ${userCode}
 @fragment
 fn main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let fragCoord = uv * uniforms.iResolution;
-
   let correctedUv = ((uv * uniforms.iResolution) - 0.5 * uniforms.iResolution) / uniforms.iResolution.y;
 
   return mainImage(correctedUv);
@@ -93,10 +94,10 @@ async function initializeWebGPU(canvas: HTMLCanvasElement, fragmentSource: strin
     code: createFragmentShader(fragmentSource),
   })
 
-  // Create uniform buffer (16 bytes: f32 time + f32 padding + vec2f resolution)
+  // Create uniform buffer (32 bytes: f32 time + f32 mouseLeftDown + vec2f resolution + vec2f mouse + vec2f mouseNormalized)
   const uniformBuffer = device.createBuffer({
     label: "uniforms",
-    size: 16,
+    size: 32,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
 
@@ -158,6 +159,10 @@ export function useWebGPU(options: UseWebGPUOptions) {
   const animationFrameRef = useRef<number>(0)
   const elapsedTimeRef = useRef<number>(0)
   const lastFrameTimeRef = useRef<number>(0)
+  const mouseRef = useRef<[number, number]>([0, 0])
+  const mouseNormalizedRef = useRef<[number, number]>([0, 0])
+  const mouseLeftDownRef = useRef<boolean>(false)
+  const canvasRectRef = useRef<DOMRect | null>(null)
   const onErrorRef = useRef(options.onError)
   const fragmentRef = useRef(options.fragment)
   const dprRef = useRef(window.devicePixelRatio || 1)
@@ -199,9 +204,13 @@ export function useWebGPU(options: UseWebGPUOptions) {
     // Update uniforms
     const uniformData = new Float32Array([
       elapsedTimeRef.current,
-      0, // padding
+      mouseLeftDownRef.current ? 1.0 : 0.0,
       canvas.width,
       canvas.height,
+      mouseRef.current[0],
+      mouseRef.current[1],
+      mouseNormalizedRef.current[0],
+      mouseNormalizedRef.current[1],
     ])
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
 
@@ -280,5 +289,65 @@ export function useWebGPU(options: UseWebGPUOptions) {
     }
   }, [render])
 
-  return { canvasRef }
+  // Mouse tracking (globally, so position updates even outside canvas)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    // Cache the bounding rect and update on resize
+    const updateRect = () => {
+      canvasRectRef.current = canvas.getBoundingClientRect()
+    }
+    updateRect()
+
+    const resizeObserver = new ResizeObserver(updateRect)
+    resizeObserver.observe(canvas)
+
+    // Also update on scroll since getBoundingClientRect is viewport-relative
+    window.addEventListener("scroll", updateRect, { passive: true })
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const rect = canvasRectRef.current
+      if (!rect) return
+
+      const dpr = dprRef.current
+      const x = (event.clientX - rect.left) * dpr
+      // Y is inverted: WebGL/WebGPU convention has Y=0 at bottom, DOM has Y=0 at top
+      const y = (rect.height - (event.clientY - rect.top)) * dpr
+      mouseRef.current = [x, y]
+
+      // Update normalized mouse position
+      const minDimension = Math.min(canvas.width, canvas.height) || 1
+      mouseNormalizedRef.current = [
+        (mouseRef.current[0] - canvas.width / 2) / minDimension,
+        (mouseRef.current[1] - canvas.height / 2) / minDimension,
+      ]
+    }
+
+    const handleMouseDown = (event: MouseEvent) => {
+      if (event.button === 0) {
+        mouseLeftDownRef.current = true
+      }
+    }
+
+    const handleMouseUp = (event: MouseEvent) => {
+      if (event.button === 0) {
+        mouseLeftDownRef.current = false
+      }
+    }
+
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mousedown", handleMouseDown)
+    window.addEventListener("mouseup", handleMouseUp)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener("scroll", updateRect)
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mousedown", handleMouseDown)
+      window.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [])
+
+  return { canvasRef, mouseRef }
 }

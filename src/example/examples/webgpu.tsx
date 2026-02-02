@@ -1,10 +1,16 @@
-import { generateSceneCirclesFunctionGpu, ReactGpuShader } from "../.."
+import { generateDistortionRippleFunctionGpu, generateSceneCirclesFunctionGpu, ReactGpuShader } from "../.."
 
 const gradientShader = /*wgsl*/ `
 
 ${generateSceneCirclesFunctionGpu()}
 
-fn mainImage(uv: vec2f) -> vec4f {
+${generateDistortionRippleFunctionGpu()}
+
+fn mainImage(uv0: vec2f) -> vec4f {
+  var uv = uv0;
+
+  uv += DistortionRipple(uv, uniforms.iMouseNormalized, 0.5, 1.0, 0.2);
+
   let color = SceneCircles(                                                                                                                                         
     uv,                                                                                                                                                           
     1.0,           // iterations

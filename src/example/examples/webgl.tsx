@@ -1,4 +1,7 @@
-import { generateSceneCirclesFunction, generateUtilsFunction, ReactShader } from "../.."
+import { ReactShader } from "../../ReactShader"
+import { generateDistortionRippleFunction } from "../../shaders/distortion-ripple"
+import { generateSceneCirclesFunction } from "../../shaders/scene-circles"
+import { generateUtilsFunction } from "../../shaders/utils"
 
 const gradientShader = /*glsl*/ `#version 300 es
 precision mediump float;
@@ -7,12 +10,16 @@ precision mediump float;
 
 out vec4 fragColor;
 
+${generateDistortionRippleFunction()}
 ${generateSceneCirclesFunction()}
 ${generateUtilsFunction()}
 
 void main() {
     vec2 uv = GetUv(gl_FragCoord.xy, iResolution);
     
+
+    uv += DistortionRipple(uv, iMouseNormalized, 0.5, 1.0, 0.2);
+
     vec3 color = SceneCircles(uv,
         1.0,
         1.0,
