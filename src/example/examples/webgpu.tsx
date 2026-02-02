@@ -18,6 +18,13 @@ fn mainImage(uv0: vec2f) -> vec4f {
     uv += DistortionRipple(uv, uniforms.iMouseNormalized, uniforms.rippleRadius, 1.0, 0.2);
   }
 
+  uv += DistortionRipple(uv, uniforms.ripples[1], uniforms.rippleRadius, 1.0, 0.2);
+
+  // 
+  // for (var i: i32 = 0; i < uniforms.ripples_count; i++) {
+  //   uv += DistortionRipple(uv, uniforms.ripples[i], uniforms.rippleRadius, 1.0, 0.2);
+  // }
+
   let noiseValueX = SimplexNoise3D(vec3(uv / 0.1, uniforms.iTime)) * 0.1;
   let noiseValueY = SimplexNoise3D(vec3(uv / 0.1, -uniforms.iTime)) * 0.1;
   let noiseValue = vec2(noiseValueX, noiseValueY);
@@ -41,7 +48,16 @@ fn mainImage(uv0: vec2f) -> vec4f {
 export function WebGpuDemo() {
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      <ReactGpuShader fragment={gradientShader} uniforms={{ rippleRadius: 0.1 }} />
+      <ReactGpuShader
+        fragment={gradientShader}
+        uniforms={{
+          rippleRadius: 0.1,
+          ripples: [
+            [0, 0],
+            [0.5, 0.5],
+          ],
+        }}
+      />
       <div
         style={{
           position: "absolute",

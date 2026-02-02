@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from "react"
-import type { Vec2, Vec3, Vec4 } from "../types"
+import type { FloatArray, Vec2, Vec2Array, Vec3, Vec3Array, Vec4, Vec4Array } from "../types"
 
-// Supported GPU uniform types (no textures/arrays for now)
-type GpuUniformValue = number | Vec2 | Vec3 | Vec4
+// Supported GPU uniform types (no textures)
+type GpuUniformValue = number | Vec2 | Vec3 | Vec4 | FloatArray | Vec2Array | Vec3Array | Vec4Array
 
 interface UseWebGPUOptions {
   fragment: string
@@ -19,13 +19,17 @@ interface WebGPUState {
   uniformLayout: UniformLayout
 }
 
-type WgslType = "f32" | "vec2f" | "vec3f" | "vec4f"
+type WgslBaseType = "f32" | "vec2f" | "vec3f" | "vec4f"
+type WgslType = WgslBaseType | `array<${WgslBaseType}, ${number}>`
 
 interface UniformField {
   name: string
   type: WgslType
   offset: number
   size: number
+  isArray?: boolean
+  arrayLength?: number
+  elementStride?: number
 }
 
 interface UniformLayout {
@@ -33,17 +37,91 @@ interface UniformLayout {
   bufferSize: number
 }
 
-function inferWgslType(value: GpuUniformValue): WgslType {
-  if (typeof value === "number") return "f32"
-  if (Array.isArray(value)) {
-    if (value.length === 2) return "vec2f"
-    if (value.length === 3) return "vec3f"
-    if (value.length === 4) return "vec4f"
+// Type detection helpers
+function isVec2(value: GpuUniformValue): value is Vec2 {
+  return Array.isArray(value) && value.length === 2 && typeof value[0] === "number"
+}
+
+function isVec3(value: GpuUniformValue): value is Vec3 {
+  return Array.isArray(value) && value.length === 3 && typeof value[0] === "number"
+}
+
+function isVec4(value: GpuUniformValue): value is Vec4 {
+  return Array.isArray(value) && value.length === 4 && typeof value[0] === "number"
+}
+
+function isFloatArray(value: GpuUniformValue): value is FloatArray {
+  return Array.isArray(value) && value.length > 4 && typeof value[0] === "number"
+}
+
+function isVec2Array(value: GpuUniformValue): value is Vec2Array {
+  return Array.isArray(value) && value.length > 0 && Array.isArray(value[0]) && value[0].length === 2
+}
+
+function isVec3Array(value: GpuUniformValue): value is Vec3Array {
+  return Array.isArray(value) && value.length > 0 && Array.isArray(value[0]) && value[0].length === 3
+}
+
+function isVec4Array(value: GpuUniformValue): value is Vec4Array {
+  return Array.isArray(value) && value.length > 0 && Array.isArray(value[0]) && value[0].length === 4
+}
+
+interface InferredType {
+  wgslType: WgslType
+  baseType: WgslBaseType
+  isArray: boolean
+  arrayLength: number
+}
+
+function inferWgslType(value: GpuUniformValue): InferredType {
+  if (typeof value === "number") {
+    return { wgslType: "f32", baseType: "f32", isArray: false, arrayLength: 0 }
+  }
+  if (isVec4Array(value)) {
+    return {
+      wgslType: `array<vec4f, ${value.length}>`,
+      baseType: "vec4f",
+      isArray: true,
+      arrayLength: value.length,
+    }
+  }
+  if (isVec3Array(value)) {
+    return {
+      wgslType: `array<vec3f, ${value.length}>`,
+      baseType: "vec3f",
+      isArray: true,
+      arrayLength: value.length,
+    }
+  }
+  if (isVec2Array(value)) {
+    return {
+      wgslType: `array<vec2f, ${value.length}>`,
+      baseType: "vec2f",
+      isArray: true,
+      arrayLength: value.length,
+    }
+  }
+  if (isFloatArray(value)) {
+    return {
+      wgslType: `array<f32, ${value.length}>`,
+      baseType: "f32",
+      isArray: true,
+      arrayLength: value.length,
+    }
+  }
+  if (isVec4(value)) {
+    return { wgslType: "vec4f", baseType: "vec4f", isArray: false, arrayLength: 0 }
+  }
+  if (isVec3(value)) {
+    return { wgslType: "vec3f", baseType: "vec3f", isArray: false, arrayLength: 0 }
+  }
+  if (isVec2(value)) {
+    return { wgslType: "vec2f", baseType: "vec2f", isArray: false, arrayLength: 0 }
   }
   throw new Error(`Unsupported uniform value type: ${typeof value}`)
 }
 
-function getTypeAlignment(type: WgslType): number {
+function getTypeAlignment(type: WgslBaseType): number {
   switch (type) {
     case "f32":
       return 4
@@ -55,7 +133,7 @@ function getTypeAlignment(type: WgslType): number {
   }
 }
 
-function getTypeSize(type: WgslType): number {
+function getTypeSize(type: WgslBaseType): number {
   switch (type) {
     case "f32":
       return 4
@@ -68,44 +146,80 @@ function getTypeSize(type: WgslType): number {
   }
 }
 
+// In WGSL uniform buffers, array elements have 16-byte stride
+const UNIFORM_ARRAY_STRIDE = 16
+
 // Default uniforms with their types (order matters for alignment)
-const DEFAULT_UNIFORMS: Array<{ name: string; type: WgslType }> = [
-  { name: "iTime", type: "f32" },
-  { name: "iMouseLeftDown", type: "f32" },
-  { name: "iResolution", type: "vec2f" },
-  { name: "iMouse", type: "vec2f" },
-  { name: "iMouseNormalized", type: "vec2f" },
+const DEFAULT_UNIFORMS: Array<{ name: string; baseType: WgslBaseType }> = [
+  { name: "iTime", baseType: "f32" },
+  { name: "iMouseLeftDown", baseType: "f32" },
+  { name: "iResolution", baseType: "vec2f" },
+  { name: "iMouse", baseType: "vec2f" },
+  { name: "iMouseNormalized", baseType: "vec2f" },
 ]
 
 function calculateUniformLayout(customUniforms?: Record<string, GpuUniformValue>): UniformLayout {
   const fields: UniformField[] = []
   let offset = 0
 
-  // Helper to add a field with proper alignment
-  const addField = (name: string, type: WgslType) => {
-    const alignment = getTypeAlignment(type)
-    const size = getTypeSize(type)
+  // Helper to add a scalar/vector field with proper alignment
+  const addField = (name: string, baseType: WgslBaseType) => {
+    const alignment = getTypeAlignment(baseType)
+    const size = getTypeSize(baseType)
 
     // Align offset
     offset = Math.ceil(offset / alignment) * alignment
 
-    fields.push({ name, type, offset, size })
+    fields.push({ name, type: baseType, offset, size, isArray: false })
     offset += size
+  }
+
+  // Helper to add an array field
+  const addArrayField = (name: string, baseType: WgslBaseType, arrayLength: number) => {
+    // Arrays in uniform buffers need 16-byte alignment
+    offset = Math.ceil(offset / 16) * 16
+
+    const totalSize = arrayLength * UNIFORM_ARRAY_STRIDE
+    fields.push({
+      name,
+      type: `array<${baseType}, ${arrayLength}>`,
+      offset,
+      size: totalSize,
+      isArray: true,
+      arrayLength,
+      elementStride: UNIFORM_ARRAY_STRIDE,
+    })
+    offset += totalSize
   }
 
   // Add default uniforms first (already ordered for good packing)
   for (const u of DEFAULT_UNIFORMS) {
-    addField(u.name, u.type)
+    addField(u.name, u.baseType)
   }
 
-  // Add custom uniforms, sorted by alignment (largest first) for better packing
+  // Process custom uniforms - separate arrays from scalars/vectors
   if (customUniforms) {
-    const customEntries = Object.entries(customUniforms)
-      .map(([name, value]) => ({ name, type: inferWgslType(value) }))
-      .sort((a, b) => getTypeAlignment(b.type) - getTypeAlignment(a.type))
+    const scalarEntries: Array<{ name: string; inferred: InferredType }> = []
+    const arrayEntries: Array<{ name: string; inferred: InferredType }> = []
 
-    for (const { name, type } of customEntries) {
-      addField(name, type)
+    for (const [name, value] of Object.entries(customUniforms)) {
+      const inferred = inferWgslType(value)
+      if (inferred.isArray) {
+        arrayEntries.push({ name, inferred })
+      } else {
+        scalarEntries.push({ name, inferred })
+      }
+    }
+
+    // Add scalar/vector uniforms first, sorted by alignment for better packing
+    scalarEntries.sort((a, b) => getTypeAlignment(b.inferred.baseType) - getTypeAlignment(a.inferred.baseType))
+    for (const { name, inferred } of scalarEntries) {
+      addField(name, inferred.baseType)
+    }
+
+    // Add array uniforms after (they need more alignment anyway)
+    for (const { name, inferred } of arrayEntries) {
+      addArrayField(name, inferred.baseType, inferred.arrayLength)
     }
   }
 
@@ -118,6 +232,51 @@ function calculateUniformLayout(customUniforms?: Record<string, GpuUniformValue>
 function generateUniformStruct(layout: UniformLayout): string {
   const members = layout.fields.map((f) => `  ${f.name}: ${f.type},`).join("\n")
   return `struct Uniforms {\n${members}\n}`
+}
+
+function packUniformValue(field: UniformField, value: GpuUniformValue, floatData: Float32Array): void {
+  const floatOffset = field.offset / 4
+
+  if (field.isArray && field.elementStride && field.arrayLength) {
+    // Pack array with proper stride
+    const stride = field.elementStride / 4 // stride in floats
+    const maxLen = field.arrayLength
+
+    if (isVec4Array(value)) {
+      for (let i = 0; i < value.length && i < maxLen; i++) {
+        const elemOffset = floatOffset + i * stride
+        floatData[elemOffset] = value[i][0]
+        floatData[elemOffset + 1] = value[i][1]
+        floatData[elemOffset + 2] = value[i][2]
+        floatData[elemOffset + 3] = value[i][3]
+      }
+    } else if (isVec3Array(value)) {
+      for (let i = 0; i < value.length && i < maxLen; i++) {
+        const elemOffset = floatOffset + i * stride
+        floatData[elemOffset] = value[i][0]
+        floatData[elemOffset + 1] = value[i][1]
+        floatData[elemOffset + 2] = value[i][2]
+      }
+    } else if (isVec2Array(value)) {
+      for (let i = 0; i < value.length && i < maxLen; i++) {
+        const elemOffset = floatOffset + i * stride
+        floatData[elemOffset] = value[i][0]
+        floatData[elemOffset + 1] = value[i][1]
+      }
+    } else if (isFloatArray(value)) {
+      for (let i = 0; i < value.length && i < maxLen; i++) {
+        const elemOffset = floatOffset + i * stride
+        floatData[elemOffset] = value[i]
+      }
+    }
+  } else if (typeof value === "number") {
+    floatData[floatOffset] = value
+  } else if (Array.isArray(value) && typeof value[0] === "number") {
+    // Vec2, Vec3, Vec4
+    for (let i = 0; i < value.length; i++) {
+      floatData[floatOffset + i] = value[i] as number
+    }
+  }
 }
 
 const VERTEX_SHADER = `
@@ -330,14 +489,7 @@ export function useWebGPU(options: UseWebGPUOptions) {
       const value = allValues[field.name]
       if (value === undefined) continue
 
-      const floatOffset = field.offset / 4
-      if (typeof value === "number") {
-        uniformData[floatOffset] = value
-      } else if (Array.isArray(value)) {
-        for (let i = 0; i < value.length; i++) {
-          uniformData[floatOffset + i] = value[i]
-        }
-      }
+      packUniformValue(field, value, uniformData)
     }
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
 
