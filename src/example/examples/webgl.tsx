@@ -20,7 +20,13 @@ void main() {
     vec2 uv = GetUv(gl_FragCoord.xy, iResolution);
     
 
-    uv += DistortionRipple(uv, iMouseNormalized, 0.5, 1.0, 0.2);
+    if (iMouseLeftDown == 1.0) {
+      uv += DistortionRipple(uv, iMouseNormalized, rippleRadius, 1.0, 0.2);
+    }
+
+    for (int i = 0; i < ripples_count; i++) {
+      uv += DistortionRipple(uv, ripples[i], rippleRadius, 1.0, 0.2);
+    }
 
     float noiseValueX = SimplexNoise3D(vec3(uv / 0.1, iTime)) * 0.1;
     float noiseValueY = SimplexNoise3D(vec3(uv / 0.1, -iTime)) * 0.1;
@@ -44,7 +50,16 @@ void main() {
 export function WebGlDemo() {
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      <ReactShader fragment={gradientShader} />
+      <ReactShader
+        fragment={gradientShader}
+        uniforms={{
+          rippleRadius: 0.1,
+          ripples: [
+            [0, 0],
+            [0.5, 0.5],
+          ],
+        }}
+      />
       <div
         style={{
           position: "absolute",

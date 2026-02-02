@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef } from "react"
+import type { Vec2, Vec3, Vec4 } from "../types"
+
+// Supported GPU uniform types (no textures/arrays for now)
+type GpuUniformValue = number | Vec2 | Vec3 | Vec4
 
 interface UseWebGPUOptions {
   fragment: string
+  uniforms?: Record<string, GpuUniformValue>
   onError?: (error: Error) => void
 }
 
@@ -11,6 +16,108 @@ interface WebGPUState {
   pipeline: GPURenderPipeline
   uniformBuffer: GPUBuffer
   uniformBindGroup: GPUBindGroup
+  uniformLayout: UniformLayout
+}
+
+type WgslType = "f32" | "vec2f" | "vec3f" | "vec4f"
+
+interface UniformField {
+  name: string
+  type: WgslType
+  offset: number
+  size: number
+}
+
+interface UniformLayout {
+  fields: UniformField[]
+  bufferSize: number
+}
+
+function inferWgslType(value: GpuUniformValue): WgslType {
+  if (typeof value === "number") return "f32"
+  if (Array.isArray(value)) {
+    if (value.length === 2) return "vec2f"
+    if (value.length === 3) return "vec3f"
+    if (value.length === 4) return "vec4f"
+  }
+  throw new Error(`Unsupported uniform value type: ${typeof value}`)
+}
+
+function getTypeAlignment(type: WgslType): number {
+  switch (type) {
+    case "f32":
+      return 4
+    case "vec2f":
+      return 8
+    case "vec3f":
+    case "vec4f":
+      return 16
+  }
+}
+
+function getTypeSize(type: WgslType): number {
+  switch (type) {
+    case "f32":
+      return 4
+    case "vec2f":
+      return 8
+    case "vec3f":
+      return 12
+    case "vec4f":
+      return 16
+  }
+}
+
+// Default uniforms with their types (order matters for alignment)
+const DEFAULT_UNIFORMS: Array<{ name: string; type: WgslType }> = [
+  { name: "iTime", type: "f32" },
+  { name: "iMouseLeftDown", type: "f32" },
+  { name: "iResolution", type: "vec2f" },
+  { name: "iMouse", type: "vec2f" },
+  { name: "iMouseNormalized", type: "vec2f" },
+]
+
+function calculateUniformLayout(customUniforms?: Record<string, GpuUniformValue>): UniformLayout {
+  const fields: UniformField[] = []
+  let offset = 0
+
+  // Helper to add a field with proper alignment
+  const addField = (name: string, type: WgslType) => {
+    const alignment = getTypeAlignment(type)
+    const size = getTypeSize(type)
+
+    // Align offset
+    offset = Math.ceil(offset / alignment) * alignment
+
+    fields.push({ name, type, offset, size })
+    offset += size
+  }
+
+  // Add default uniforms first (already ordered for good packing)
+  for (const u of DEFAULT_UNIFORMS) {
+    addField(u.name, u.type)
+  }
+
+  // Add custom uniforms, sorted by alignment (largest first) for better packing
+  if (customUniforms) {
+    const customEntries = Object.entries(customUniforms)
+      .map(([name, value]) => ({ name, type: inferWgslType(value) }))
+      .sort((a, b) => getTypeAlignment(b.type) - getTypeAlignment(a.type))
+
+    for (const { name, type } of customEntries) {
+      addField(name, type)
+    }
+  }
+
+  // Buffer size must be multiple of 16 for uniform buffers
+  const bufferSize = Math.ceil(offset / 16) * 16
+
+  return { fields, bufferSize }
+}
+
+function generateUniformStruct(layout: UniformLayout): string {
+  const members = layout.fields.map((f) => `  ${f.name}: ${f.type},`).join("\n")
+  return `struct Uniforms {\n${members}\n}`
 }
 
 const VERTEX_SHADER = `
@@ -36,15 +143,9 @@ fn main(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
 }
 `
 
-function createFragmentShader(userCode: string): string {
+function createFragmentShader(userCode: string, layout: UniformLayout): string {
   return `
-struct Uniforms {
-  iTime: f32,
-  iMouseLeftDown: f32,
-  iResolution: vec2f,
-  iMouse: vec2f,
-  iMouseNormalized: vec2f,
-}
+${generateUniformStruct(layout)}
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 
@@ -60,7 +161,11 @@ fn main(@location(0) uv: vec2f) -> @location(0) vec4f {
 `
 }
 
-async function initializeWebGPU(canvas: HTMLCanvasElement, fragmentSource: string): Promise<WebGPUState> {
+async function initializeWebGPU(
+  canvas: HTMLCanvasElement,
+  fragmentSource: string,
+  customUniforms?: Record<string, GpuUniformValue>,
+): Promise<WebGPUState> {
   if (!navigator.gpu) {
     throw new Error("WebGPU not supported in this browser")
   }
@@ -84,6 +189,9 @@ async function initializeWebGPU(canvas: HTMLCanvasElement, fragmentSource: strin
     alphaMode: "premultiplied",
   })
 
+  // Calculate uniform layout based on custom uniforms
+  const uniformLayout = calculateUniformLayout(customUniforms)
+
   const vertexModule = device.createShaderModule({
     label: "vertex shader",
     code: VERTEX_SHADER,
@@ -91,13 +199,13 @@ async function initializeWebGPU(canvas: HTMLCanvasElement, fragmentSource: strin
 
   const fragmentModule = device.createShaderModule({
     label: "fragment shader",
-    code: createFragmentShader(fragmentSource),
+    code: createFragmentShader(fragmentSource, uniformLayout),
   })
 
-  // Create uniform buffer (32 bytes: f32 time + f32 mouseLeftDown + vec2f resolution + vec2f mouse + vec2f mouseNormalized)
+  // Create uniform buffer with calculated size
   const uniformBuffer = device.createBuffer({
     label: "uniforms",
-    size: 32,
+    size: uniformLayout.bufferSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
 
@@ -145,6 +253,7 @@ async function initializeWebGPU(canvas: HTMLCanvasElement, fragmentSource: strin
     pipeline,
     uniformBuffer,
     uniformBindGroup,
+    uniformLayout,
   }
 }
 
@@ -165,11 +274,13 @@ export function useWebGPU(options: UseWebGPUOptions) {
   const canvasRectRef = useRef<DOMRect | null>(null)
   const onErrorRef = useRef(options.onError)
   const fragmentRef = useRef(options.fragment)
+  const uniformsRef = useRef(options.uniforms)
   const dprRef = useRef(window.devicePixelRatio || 1)
 
   // Keep refs updated
   onErrorRef.current = options.onError
   fragmentRef.current = options.fragment
+  uniformsRef.current = options.uniforms
 
   const render = useCallback((time: number) => {
     const state = stateRef.current
@@ -181,7 +292,7 @@ export function useWebGPU(options: UseWebGPUOptions) {
     lastFrameTimeRef.current = time
     elapsedTimeRef.current += deltaTime
 
-    const { device, context, pipeline, uniformBuffer, uniformBindGroup } = state
+    const { device, context, pipeline, uniformBuffer, uniformBindGroup, uniformLayout } = state
 
     // Handle canvas resize with high-DPI support
     const dpr = dprRef.current
@@ -201,17 +312,33 @@ export function useWebGPU(options: UseWebGPUOptions) {
       canvas.height = bufferHeight
     }
 
-    // Update uniforms
-    const uniformData = new Float32Array([
-      elapsedTimeRef.current,
-      mouseLeftDownRef.current ? 1.0 : 0.0,
-      canvas.width,
-      canvas.height,
-      mouseRef.current[0],
-      mouseRef.current[1],
-      mouseNormalizedRef.current[0],
-      mouseNormalizedRef.current[1],
-    ])
+    // Build default uniform values
+    const defaultValues: Record<string, GpuUniformValue> = {
+      iTime: elapsedTimeRef.current,
+      iMouseLeftDown: mouseLeftDownRef.current ? 1.0 : 0.0,
+      iResolution: [canvas.width, canvas.height],
+      iMouse: mouseRef.current,
+      iMouseNormalized: mouseNormalizedRef.current,
+    }
+
+    // Merge with custom uniforms
+    const allValues = { ...defaultValues, ...uniformsRef.current }
+
+    // Pack uniforms into buffer according to layout
+    const uniformData = new Float32Array(uniformLayout.bufferSize / 4)
+    for (const field of uniformLayout.fields) {
+      const value = allValues[field.name]
+      if (value === undefined) continue
+
+      const floatOffset = field.offset / 4
+      if (typeof value === "number") {
+        uniformData[floatOffset] = value
+      } else if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++) {
+          uniformData[floatOffset + i] = value[i]
+        }
+      }
+    }
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
 
     // Create command encoder and render pass
@@ -249,7 +376,7 @@ export function useWebGPU(options: UseWebGPUOptions) {
 
     const initialize = async () => {
       try {
-        const state = await initializeWebGPU(canvas, fragmentRef.current)
+        const state = await initializeWebGPU(canvas, fragmentRef.current, uniformsRef.current)
         if (!mounted) {
           cleanupWebGPU(state)
           return

@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useWebGPU } from "./hooks/useWebGPU"
+import type { Vec2, Vec3, Vec4 } from "./types"
+
+// Supported GPU uniform types (no textures/arrays for now)
+type GpuUniformValue = number | Vec2 | Vec3 | Vec4
 
 export interface ReactGpuShaderProps {
   className?: string
   fragment: string
+  uniforms?: Record<string, GpuUniformValue>
   fullscreen?: boolean
 }
 
@@ -28,7 +33,7 @@ const CANVAS_STYLE: React.CSSProperties = {
   height: "100%",
 }
 
-export function ReactGpuShader({ className, fragment, fullscreen = false }: ReactGpuShaderProps) {
+export function ReactGpuShader({ className, fragment, uniforms, fullscreen = false }: ReactGpuShaderProps) {
   const [error, setError] = useState<string | null>(null)
 
   const handleError = useCallback((err: Error) => {
@@ -43,6 +48,7 @@ export function ReactGpuShader({ className, fragment, fullscreen = false }: Reac
 
   const { canvasRef } = useWebGPU({
     fragment,
+    uniforms,
     onError: handleError,
   })
 

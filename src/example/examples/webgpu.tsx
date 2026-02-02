@@ -14,11 +14,14 @@ ${generateSimplexNoiseFunctionGpu()}
 fn mainImage(uv0: vec2f) -> vec4f {
   var uv = uv0;
 
-  uv += DistortionRipple(uv, uniforms.iMouseNormalized, 0.5, 1.0, 0.2);
+  if (uniforms.iMouseLeftDown == 1.0) {
+    uv += DistortionRipple(uv, uniforms.iMouseNormalized, uniforms.rippleRadius, 1.0, 0.2);
+  }
 
   let noiseValueX = SimplexNoise3D(vec3(uv / 0.1, uniforms.iTime)) * 0.1;
   let noiseValueY = SimplexNoise3D(vec3(uv / 0.1, -uniforms.iTime)) * 0.1;
   let noiseValue = vec2(noiseValueX, noiseValueY);
+
   uv += noiseValue * 0.1;
 
   let color = SceneCircles(                                                                                                                                         
@@ -38,7 +41,7 @@ fn mainImage(uv0: vec2f) -> vec4f {
 export function WebGpuDemo() {
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      <ReactGpuShader fragment={gradientShader} />
+      <ReactGpuShader fragment={gradientShader} uniforms={{ rippleRadius: 0.1 }} />
       <div
         style={{
           position: "absolute",
