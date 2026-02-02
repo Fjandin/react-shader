@@ -9,6 +9,7 @@ export { generateDistortionRippleFunctionGpu } from "./shaders/distortion-ripple
 export { generateSceneCirclesFunction } from "./shaders/scene-circles"
 export { generateSceneCirclesFunctionGpu } from "./shaders/scene-circles-gpu"
 export { generateSimplexNoiseFunction } from "./shaders/simplex-noise"
+export { generateSimplexNoiseFunctionGpu } from "./shaders/simplex-noise-gpu"
 export { generateUtilsFunction } from "./shaders/utils"
 export type {
   AudioConnectionState,

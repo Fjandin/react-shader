@@ -1,6 +1,7 @@
 import { ReactShader } from "../../ReactShader"
 import { generateDistortionRippleFunction } from "../../shaders/distortion-ripple"
 import { generateSceneCirclesFunction } from "../../shaders/scene-circles"
+import { generateSimplexNoiseFunction } from "../../shaders/simplex-noise"
 import { generateUtilsFunction } from "../../shaders/utils"
 
 const gradientShader = /*glsl*/ `#version 300 es
@@ -13,12 +14,19 @@ out vec4 fragColor;
 ${generateDistortionRippleFunction()}
 ${generateSceneCirclesFunction()}
 ${generateUtilsFunction()}
+${generateSimplexNoiseFunction()}
 
 void main() {
     vec2 uv = GetUv(gl_FragCoord.xy, iResolution);
     
 
     uv += DistortionRipple(uv, iMouseNormalized, 0.5, 1.0, 0.2);
+
+    float noiseValueX = SimplexNoise3D(vec3(uv / 0.1, iTime)) * 0.1;
+    float noiseValueY = SimplexNoise3D(vec3(uv / 0.1, -iTime)) * 0.1;
+    vec2 noiseValue = vec2(noiseValueX, noiseValueY);
+    
+    uv += noiseValue * 0.1;
 
     vec3 color = SceneCircles(uv,
         1.0,
@@ -36,7 +44,7 @@ void main() {
 export function WebGlDemo() {
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      <ReactShader fragment={gradientShader} uniforms={{}} />
+      <ReactShader fragment={gradientShader} />
       <div
         style={{
           position: "absolute",
