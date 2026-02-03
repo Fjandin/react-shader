@@ -18,7 +18,8 @@ fn mainImage(uv0: vec2f) -> vec4f {
     uv += DistortionRipple(uv, uniforms.iMouseNormalized, uniforms.rippleRadius, 1.0, 0.2);
   }
 
-  uv += DistortionRipple(uv, uniforms.ripples[0], uniforms.rippleRadius, 1.0, 0.2);
+  let ripple = uniforms.ripples[2].xy;
+  uv += DistortionRipple(uv, ripple, uniforms.rippleRadius, 0.5, 0.1);
 
   // 
   // for (var i: i32 = 0; i < uniforms.ripples_count; i++) {
@@ -53,8 +54,9 @@ export function WebGpuDemo() {
         uniforms={{
           rippleRadius: 0.1,
           ripples: [
-            [0.2, 0.3],
-            [0.2, 0.3],
+            [-0.2, 0.2, 0, 0],
+            [0.3, 0.3, 0, 0],
+            [0.4, 0.4, 0, 0],
           ],
         }}
       />

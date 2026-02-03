@@ -489,8 +489,9 @@ export function useWebGPU(options: UseWebGPUOptions) {
     const uniformData = new Float32Array(uniformLayout.bufferSize / 4)
     for (const field of uniformLayout.fields) {
       const value = allValues[field.name]
-      if (value === undefined) continue
-
+      if (value === undefined) {
+        continue
+      }
       packUniformValue(field, value, uniformData)
     }
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
