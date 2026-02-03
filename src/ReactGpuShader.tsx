@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useWebGPU } from "./hooks/useWebGPU"
-import type { FloatArray, Vec2, Vec2Array, Vec3, Vec3Array, Vec4, Vec4Array } from "./types"
+import type { Vec2, Vec3, Vec4, Vec4Array } from "./types"
 
 // Supported GPU uniform types (no textures)
-type GpuUniformValue = number | Vec2 | Vec3 | Vec4 | FloatArray | Vec2Array | Vec3Array | Vec4Array
+type GpuUniformValue = number | Vec2 | Vec3 | Vec4 | Vec4Array
 
 export interface ReactGpuShaderProps {
   className?: string

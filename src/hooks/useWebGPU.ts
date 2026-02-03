@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from "react"
-import type { FloatArray, Vec2, Vec2Array, Vec3, Vec3Array, Vec4, Vec4Array } from "../types"
+import type { Vec2, Vec3, Vec4, Vec4Array } from "../types"
 
 // Supported GPU uniform types (no textures)
-type GpuUniformValue = number | Vec2 | Vec3 | Vec4 | FloatArray | Vec2Array | Vec3Array | Vec4Array
+type GpuUniformValue = number | Vec2 | Vec3 | Vec4 | Vec4Array
 
 interface UseWebGPUOptions {
   fragment: string
@@ -50,18 +50,6 @@ function isVec4(value: GpuUniformValue): value is Vec4 {
   return Array.isArray(value) && value.length === 4 && typeof value[0] === "number"
 }
 
-function isFloatArray(value: GpuUniformValue): value is FloatArray {
-  return Array.isArray(value) && value.length > 4 && typeof value[0] === "number"
-}
-
-function isVec2Array(value: GpuUniformValue): value is Vec2Array {
-  return Array.isArray(value) && value.length > 0 && Array.isArray(value[0]) && value[0].length === 2
-}
-
-function isVec3Array(value: GpuUniformValue): value is Vec3Array {
-  return Array.isArray(value) && value.length > 0 && Array.isArray(value[0]) && value[0].length === 3
-}
-
 function isVec4Array(value: GpuUniformValue): value is Vec4Array {
   return Array.isArray(value) && value.length > 0 && Array.isArray(value[0]) && value[0].length === 4
 }
@@ -81,30 +69,6 @@ function inferWgslType(value: GpuUniformValue): InferredType {
     return {
       wgslType: `array<vec4f, ${value.length}>`,
       baseType: "vec4f",
-      isArray: true,
-      arrayLength: value.length,
-    }
-  }
-  if (isVec3Array(value)) {
-    return {
-      wgslType: `array<vec3f, ${value.length}>`,
-      baseType: "vec3f",
-      isArray: true,
-      arrayLength: value.length,
-    }
-  }
-  if (isVec2Array(value)) {
-    return {
-      wgslType: `array<vec2f, ${value.length}>`,
-      baseType: "vec2f",
-      isArray: true,
-      arrayLength: value.length,
-    }
-  }
-  if (isFloatArray(value)) {
-    return {
-      wgslType: `array<f32, ${value.length}>`,
-      baseType: "f32",
       isArray: true,
       arrayLength: value.length,
     }
@@ -211,6 +175,14 @@ function calculateUniformLayout(customUniforms?: Record<string, GpuUniformValue>
       }
     }
 
+    // Auto-generate _count scalars for each array uniform
+    for (const { name } of arrayEntries) {
+      scalarEntries.push({
+        name: `${name}_count`,
+        inferred: { wgslType: "f32", baseType: "f32", isArray: false, arrayLength: 0 },
+      })
+    }
+
     // Add scalar/vector uniforms first, sorted by alignment for better packing
     scalarEntries.sort((a, b) => getTypeAlignment(b.inferred.baseType) - getTypeAlignment(a.inferred.baseType))
     for (const { name, inferred } of scalarEntries) {
@@ -249,24 +221,6 @@ function packUniformValue(field: UniformField, value: GpuUniformValue, floatData
         floatData[elemOffset + 1] = value[i][1]
         floatData[elemOffset + 2] = value[i][2]
         floatData[elemOffset + 3] = value[i][3]
-      }
-    } else if (isVec3Array(value)) {
-      for (let i = 0; i < value.length && i < maxLen; i++) {
-        const elemOffset = floatOffset + i * stride
-        floatData[elemOffset] = value[i][0]
-        floatData[elemOffset + 1] = value[i][1]
-        floatData[elemOffset + 2] = value[i][2]
-      }
-    } else if (isVec2Array(value)) {
-      for (let i = 0; i < value.length && i < maxLen; i++) {
-        const elemOffset = floatOffset + i * stride
-        floatData[elemOffset] = value[i][0]
-        floatData[elemOffset + 1] = value[i][1]
-      }
-    } else if (isFloatArray(value)) {
-      for (let i = 0; i < value.length && i < maxLen; i++) {
-        const elemOffset = floatOffset + i * stride
-        floatData[elemOffset] = value[i]
       }
     }
   } else if (typeof value === "number") {
@@ -482,8 +436,15 @@ export function useWebGPU(options: UseWebGPUOptions) {
       iMouseNormalized: mouseNormalizedRef.current,
     }
 
-    // Merge with custom uniforms
-    const allValues = { ...defaultValues, ...uniformsRef.current }
+    // Merge with custom uniforms and auto-generate _count values for arrays
+    const allValues: Record<string, GpuUniformValue> = { ...defaultValues, ...uniformsRef.current }
+    if (uniformsRef.current) {
+      for (const [name, value] of Object.entries(uniformsRef.current)) {
+        if (isVec4Array(value)) {
+          allValues[`${name}_count`] = value.length
+        }
+      }
+    }
 
     // Pack uniforms into buffer according to layout
     const uniformData = new Float32Array(uniformLayout.bufferSize / 4)

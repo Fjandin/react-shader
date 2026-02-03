@@ -17,14 +17,10 @@ fn mainImage(uv0: vec2f) -> vec4f {
   if (uniforms.iMouseLeftDown == 1.0) {
     uv += DistortionRipple(uv, uniforms.iMouseNormalized, uniforms.rippleRadius, 1.0, 0.2);
   }
-
-  let ripple = uniforms.ripples[2].xy;
-  uv += DistortionRipple(uv, ripple, uniforms.rippleRadius, 0.5, 0.1);
-
-  // 
-  // for (var i: i32 = 0; i < uniforms.ripples_count; i++) {
-  //   uv += DistortionRipple(uv, uniforms.ripples[i], uniforms.rippleRadius, 1.0, 0.2);
-  // }
+  
+  for (var i: i32 = 0; i < i32(uniforms.ripples_count); i++) {
+    uv += DistortionRipple(uv, uniforms.ripples[i].xy, uniforms.rippleRadius, 0.5, 0.1);
+  }
 
   let noiseValueX = SimplexNoise3D(vec3(uv / 0.1, uniforms.iTime)) * 0.1;
   let noiseValueY = SimplexNoise3D(vec3(uv / 0.1, -uniforms.iTime)) * 0.1;
