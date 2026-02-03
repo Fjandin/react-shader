@@ -74,10 +74,10 @@ function inferWgslType(value: GpuUniformValue): InferredType {
   }
   if (isVec4Array(value)) {
     return {
-      wgslType: `array<vec4f, ${value.length}>`,
+      wgslType: `array<vec4f, 100>`,
       baseType: "vec4f",
       isArray: true,
-      arrayLength: value.length,
+      arrayLength: 100,
     }
   }
   if (isVec4(value)) {

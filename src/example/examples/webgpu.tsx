@@ -19,17 +19,13 @@ ${generateSimplexNoiseFunctionGpu()}
 fn mainImage(uv0: vec2f) -> vec4f {
   var uv = uv0;
 
-  // if (uniforms.iMouseLeftDown == 1.0) {
-  //   uv += DistortionRipple(uv, uniforms.iMouseNormalized, uniforms.rippleRadius, 1.0, 0.2);
-  // }
-
   for (var i: i32 = 1; i < i32(uniforms.ripples_count); i++) {
     uv += DistortionRipple(
       uv,
       uniforms.ripples[i].xy,
       uniforms.ripples[i][2],
-      uniforms.ripples[i][3],
-      0.05 
+      uniforms.ripples[i][3] * 0.1,
+      0.05
     );
   }
 
@@ -113,7 +109,7 @@ export function WebGpuDemo() {
         }}
         timeScale={0.5}
         onFrame={onFrame}
-        // onMouseMove={onMouseMove}
+        onMouseMove={onMouseMove}
         onMouseDown={onMouseDown}
       />
       <div
