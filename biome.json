@@ -13,7 +13,6 @@
       "!.next",
       "!dist",
       "!build",
-      "!src/lib/baml_client",
       "!src/components/ui"
     ]
   },

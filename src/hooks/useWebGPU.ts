@@ -444,7 +444,9 @@ export function useWebGPU(options: UseWebGPUOptions) {
   const render = useCallback((time: number) => {
     const state = stateRef.current
     const canvas = canvasRef.current
-    if (!state || !canvas) return
+    if (!state || !canvas) {
+      return
+    }
 
     // Calculate delta time
     const deltaTime = lastFrameTimeRef.current === 0 ? 0 : (time - lastFrameTimeRef.current) / 1000
