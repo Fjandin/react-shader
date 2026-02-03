@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useWebGPU } from "./hooks/useWebGPU"
-import type { Vec2, Vec3, Vec4, Vec4Array } from "./types"
+import type { FrameInfo, Vec2, Vec3, Vec4, Vec4Array } from "./types"
 
 // Supported GPU uniform types (no textures)
 type GpuUniformValue = number | Vec2 | Vec3 | Vec4 | Vec4Array
@@ -10,6 +10,13 @@ export interface ReactGpuShaderProps {
   fragment: string
   uniforms?: Record<string, GpuUniformValue>
   fullscreen?: boolean
+  timeScale?: number
+  onFrame?: (info: FrameInfo) => void
+  onClick?: (info: FrameInfo) => void
+  onMouseMove?: (info: FrameInfo) => void
+  onMouseDown?: (info: FrameInfo) => void
+  onMouseUp?: (info: FrameInfo) => void
+  onMouseWheel?: (info: FrameInfo, wheelDelta: number) => void
 }
 
 const FULLSCREEN_CONTAINER_STYLE: React.CSSProperties = {
@@ -33,7 +40,19 @@ const CANVAS_STYLE: React.CSSProperties = {
   height: "100%",
 }
 
-export function ReactGpuShader({ className, fragment, uniforms, fullscreen = false }: ReactGpuShaderProps) {
+export function ReactGpuShader({
+  className,
+  fragment,
+  uniforms,
+  fullscreen = false,
+  timeScale,
+  onFrame,
+  onClick,
+  onMouseMove,
+  onMouseDown,
+  onMouseUp,
+  onMouseWheel,
+}: ReactGpuShaderProps) {
   const [error, setError] = useState<string | null>(null)
 
   const handleError = useCallback((err: Error) => {
@@ -50,6 +69,13 @@ export function ReactGpuShader({ className, fragment, uniforms, fullscreen = fal
     fragment,
     uniforms,
     onError: handleError,
+    timeScale,
+    onFrame,
+    onClick,
+    onMouseMove,
+    onMouseDown,
+    onMouseUp,
+    onMouseWheel,
   })
 
   const containerStyle = useMemo(

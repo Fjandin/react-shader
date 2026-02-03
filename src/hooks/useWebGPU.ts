@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react"
-import type { Vec2, Vec3, Vec4, Vec4Array } from "../types"
+import type { FrameInfo, Vec2, Vec3, Vec4, Vec4Array } from "../types"
 
 // Supported GPU uniform types (no textures)
 type GpuUniformValue = number | Vec2 | Vec3 | Vec4 | Vec4Array
@@ -8,6 +8,13 @@ interface UseWebGPUOptions {
   fragment: string
   uniforms?: Record<string, GpuUniformValue>
   onError?: (error: Error) => void
+  timeScale?: number
+  onFrame?: (info: FrameInfo) => void
+  onClick?: (info: FrameInfo) => void
+  onMouseMove?: (info: FrameInfo) => void
+  onMouseDown?: (info: FrameInfo) => void
+  onMouseUp?: (info: FrameInfo) => void
+  onMouseWheel?: (info: FrameInfo, wheelDelta: number) => void
 }
 
 interface WebGPUState {
@@ -386,102 +393,138 @@ export function useWebGPU(options: UseWebGPUOptions) {
   const mouseLeftDownRef = useRef<boolean>(false)
   const canvasRectRef = useRef<DOMRect | null>(null)
   const onErrorRef = useRef(options.onError)
+  const onFrameRef = useRef(options.onFrame)
+  const onClickRef = useRef(options.onClick)
+  const onMouseDownRef = useRef(options.onMouseDown)
+  const onMouseUpRef = useRef(options.onMouseUp)
+  const onMouseMoveRef = useRef(options.onMouseMove)
+  const onMouseWheelRef = useRef(options.onMouseWheel)
+  const timeScaleRef = useRef(options.timeScale ?? 1)
   const fragmentRef = useRef(options.fragment)
   const uniformsRef = useRef(options.uniforms)
   const dprRef = useRef(window.devicePixelRatio || 1)
 
   // Keep refs updated
   onErrorRef.current = options.onError
+  onFrameRef.current = options.onFrame
+  onClickRef.current = options.onClick
+  onMouseDownRef.current = options.onMouseDown
+  onMouseUpRef.current = options.onMouseUp
+  onMouseMoveRef.current = options.onMouseMove
+  onMouseWheelRef.current = options.onMouseWheel
+  timeScaleRef.current = options.timeScale ?? 1
   fragmentRef.current = options.fragment
   uniformsRef.current = options.uniforms
 
-  const render = useCallback((time: number) => {
-    const state = stateRef.current
+  const buildFrameInfo = useCallback((deltaTime: number): FrameInfo => {
     const canvas = canvasRef.current
-    if (!state || !canvas) {
-      return
+    return {
+      deltaTime,
+      time: elapsedTimeRef.current,
+      resolution: [canvas?.width ?? 0, canvas?.height ?? 0],
+      mouse: mouseRef.current,
+      mouseNormalized: mouseNormalizedRef.current,
+      mouseLeftDown: mouseLeftDownRef.current,
     }
+  }, [])
 
-    // Calculate delta time
-    const deltaTime = lastFrameTimeRef.current === 0 ? 0 : (time - lastFrameTimeRef.current) / 1000
-    lastFrameTimeRef.current = time
-    elapsedTimeRef.current += deltaTime
+  const render = useCallback(
+    (time: number) => {
+      const state = stateRef.current
+      const canvas = canvasRef.current
+      if (!state || !canvas) {
+        return
+      }
 
-    const { device, context, pipeline, uniformBuffer, uniformBindGroup, uniformLayout } = state
+      // Calculate delta time
+      const deltaTime = lastFrameTimeRef.current === 0 ? 0 : (time - lastFrameTimeRef.current) / 1000
+      lastFrameTimeRef.current = time
+      elapsedTimeRef.current += deltaTime * timeScaleRef.current
 
-    // Handle canvas resize with high-DPI support
-    const dpr = dprRef.current
-    const displayWidth = canvas.clientWidth
-    const displayHeight = canvas.clientHeight
+      // Call onFrame callback with current frame info
+      if (onFrameRef.current) {
+        onFrameRef.current(buildFrameInfo(deltaTime))
+      }
 
-    // Skip rendering if canvas has zero size
-    if (displayWidth === 0 || displayHeight === 0) {
-      animationFrameRef.current = requestAnimationFrame(render)
-      return
-    }
+      const { device, context, pipeline, uniformBuffer, uniformBindGroup, uniformLayout } = state
 
-    const bufferWidth = Math.round(displayWidth * dpr)
-    const bufferHeight = Math.round(displayHeight * dpr)
-    if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
-      canvas.width = bufferWidth
-      canvas.height = bufferHeight
-    }
+      // Handle canvas resize with high-DPI support
+      const dpr = dprRef.current
+      const displayWidth = canvas.clientWidth
+      const displayHeight = canvas.clientHeight
 
-    // Build default uniform values
-    const defaultValues: Record<string, GpuUniformValue> = {
-      iTime: elapsedTimeRef.current,
-      iMouseLeftDown: mouseLeftDownRef.current ? 1.0 : 0.0,
-      iResolution: [canvas.width, canvas.height],
-      iMouse: mouseRef.current,
-      iMouseNormalized: mouseNormalizedRef.current,
-    }
+      // Skip rendering if canvas has zero size
+      if (displayWidth === 0 || displayHeight === 0) {
+        animationFrameRef.current = requestAnimationFrame(render)
+        return
+      }
 
-    // Merge with custom uniforms and auto-generate _count values for arrays
-    const allValues: Record<string, GpuUniformValue> = { ...defaultValues, ...uniformsRef.current }
-    if (uniformsRef.current) {
-      for (const [name, value] of Object.entries(uniformsRef.current)) {
-        if (isVec4Array(value)) {
-          allValues[`${name}_count`] = value.length
+      const bufferWidth = Math.round(displayWidth * dpr)
+      const bufferHeight = Math.round(displayHeight * dpr)
+      if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
+        canvas.width = bufferWidth
+        canvas.height = bufferHeight
+      }
+
+      // Build default uniform values
+      const defaultValues: Record<string, GpuUniformValue> = {
+        iTime: elapsedTimeRef.current,
+        iMouseLeftDown: mouseLeftDownRef.current ? 1.0 : 0.0,
+        iResolution: [canvas.width, canvas.height],
+        iMouse: mouseRef.current,
+        iMouseNormalized: mouseNormalizedRef.current,
+      }
+
+      // Merge with custom uniforms and auto-generate _count values for arrays
+      const allValues: Record<string, GpuUniformValue> = { ...defaultValues, ...uniformsRef.current }
+      if (uniformsRef.current) {
+        for (const [name, value] of Object.entries(uniformsRef.current)) {
+          if (isVec4Array(value)) {
+            allValues[`${name}_count`] = value.length
+          }
         }
       }
-    }
 
-    // Pack uniforms into buffer according to layout
-    const uniformData = new Float32Array(uniformLayout.bufferSize / 4)
-    for (const field of uniformLayout.fields) {
-      const value = allValues[field.name]
-      if (value === undefined) {
-        continue
+      // Pack uniforms into buffer according to layout
+      const uniformData = new Float32Array(uniformLayout.bufferSize / 4)
+      for (const field of uniformLayout.fields) {
+        const value = allValues[field.name]
+        if (value === undefined) {
+          continue
+        }
+        packUniformValue(field, value, uniformData)
       }
-      packUniformValue(field, value, uniformData)
-    }
-    device.queue.writeBuffer(uniformBuffer, 0, uniformData)
+      device.queue.writeBuffer(uniformBuffer, 0, uniformData)
 
-    // Create command encoder and render pass
-    const commandEncoder = device.createCommandEncoder()
-    const textureView = context.getCurrentTexture().createView()
+      // console.log("uniformData", uniformData)
 
-    const renderPass = commandEncoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: textureView,
-          clearValue: { r: 0, g: 0, b: 0, a: 1 },
-          loadOp: "clear",
-          storeOp: "store",
-        },
-      ],
-    })
+      // Create command encoder and render pass
+      const commandEncoder = device.createCommandEncoder()
+      const textureView = context.getCurrentTexture().createView()
 
-    renderPass.setPipeline(pipeline)
-    renderPass.setBindGroup(0, uniformBindGroup)
-    renderPass.draw(3)
-    renderPass.end()
+      const renderPass = commandEncoder.beginRenderPass({
+        colorAttachments: [
+          {
+            view: textureView,
+            clearValue: { r: 0, g: 0, b: 0, a: 1 },
+            loadOp: "clear",
+            storeOp: "store",
+          },
+        ],
+      })
 
-    device.queue.submit([commandEncoder.finish()])
+      renderPass.setPipeline(pipeline)
+      renderPass.setBindGroup(0, uniformBindGroup)
+      renderPass.draw(3)
+      renderPass.end()
 
-    // Continue render loop
-    animationFrameRef.current = requestAnimationFrame(render)
-  }, [])
+      device.queue.submit([commandEncoder.finish()])
+
+      // Continue render loop
+      animationFrameRef.current = requestAnimationFrame(render)
+    },
+    [buildFrameInfo],
+  )
 
   // Initialize WebGPU and start render loop
   useEffect(() => {
@@ -565,23 +608,37 @@ export function useWebGPU(options: UseWebGPUOptions) {
         (mouseRef.current[0] - canvas.width / 2) / minDimension,
         (mouseRef.current[1] - canvas.height / 2) / minDimension,
       ]
+
+      onMouseMoveRef.current?.(buildFrameInfo(0))
     }
 
     const handleMouseDown = (event: MouseEvent) => {
       if (event.button === 0) {
         mouseLeftDownRef.current = true
       }
+      onMouseDownRef.current?.(buildFrameInfo(0))
     }
 
     const handleMouseUp = (event: MouseEvent) => {
       if (event.button === 0) {
         mouseLeftDownRef.current = false
       }
+      onMouseUpRef.current?.(buildFrameInfo(0))
+    }
+
+    const handleClick = () => {
+      onClickRef.current?.(buildFrameInfo(0))
+    }
+
+    const handleMouseWheel = (event: WheelEvent) => {
+      onMouseWheelRef.current?.(buildFrameInfo(0), event.deltaY)
     }
 
     window.addEventListener("mousemove", handleMouseMove)
     window.addEventListener("mousedown", handleMouseDown)
     window.addEventListener("mouseup", handleMouseUp)
+    canvas.addEventListener("click", handleClick)
+    window.addEventListener("wheel", handleMouseWheel)
 
     return () => {
       resizeObserver.disconnect()
@@ -589,8 +646,10 @@ export function useWebGPU(options: UseWebGPUOptions) {
       window.removeEventListener("mousemove", handleMouseMove)
       window.removeEventListener("mousedown", handleMouseDown)
       window.removeEventListener("mouseup", handleMouseUp)
+      canvas.removeEventListener("click", handleClick)
+      window.removeEventListener("wheel", handleMouseWheel)
     }
-  }, [])
+  }, [buildFrameInfo])
 
   return { canvasRef, mouseRef }
 }
