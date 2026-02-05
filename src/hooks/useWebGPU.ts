@@ -297,6 +297,10 @@ async function initializeWebGPU(
 
   const device = await adapter.requestDevice()
 
+  device.lost.then((info) => {
+    console.error(`WebGPU device lost: ${info.message}`)
+  })
+
   const context = canvas.getContext("webgpu")
   if (!context) {
     throw new Error("Failed to get WebGPU context")
@@ -403,6 +407,14 @@ export function useWebGPU(options: UseWebGPUOptions) {
   const fragmentRef = useRef(options.fragment)
   const uniformsRef = useRef(options.uniforms)
   const dprRef = useRef(window.devicePixelRatio || 1)
+  const frameInfoRef = useRef<FrameInfo>({
+    deltaTime: 0,
+    time: 0,
+    resolution: [0, 0],
+    mouse: [0, 0],
+    mouseNormalized: [0, 0],
+    mouseLeftDown: false,
+  })
 
   // Keep refs updated
   onErrorRef.current = options.onError
@@ -416,115 +428,109 @@ export function useWebGPU(options: UseWebGPUOptions) {
   fragmentRef.current = options.fragment
   uniformsRef.current = options.uniforms
 
-  const buildFrameInfo = useCallback((deltaTime: number): FrameInfo => {
+  const render = useCallback((time: number) => {
+    const state = stateRef.current
     const canvas = canvasRef.current
-    return {
-      deltaTime,
+    if (!state || !canvas) {
+      return
+    }
+
+    // Calculate delta time
+    const deltaTime = lastFrameTimeRef.current === 0 ? 0 : (time - lastFrameTimeRef.current) / 1000
+    lastFrameTimeRef.current = time
+    elapsedTimeRef.current += deltaTime * timeScaleRef.current
+
+    frameInfoRef.current = {
+      deltaTime: deltaTime,
       time: elapsedTimeRef.current,
-      resolution: [canvas?.width ?? 0, canvas?.height ?? 0],
+      resolution: [canvas.width, canvas.height],
       mouse: mouseRef.current,
       mouseNormalized: mouseNormalizedRef.current,
       mouseLeftDown: mouseLeftDownRef.current,
     }
-  }, [])
 
-  const render = useCallback(
-    (time: number) => {
-      const state = stateRef.current
-      const canvas = canvasRef.current
-      if (!state || !canvas) {
-        return
-      }
+    // Call onFrame callback with current frame info
+    if (onFrameRef.current) {
+      onFrameRef.current(frameInfoRef.current)
+    }
 
-      // Calculate delta time
-      const deltaTime = lastFrameTimeRef.current === 0 ? 0 : (time - lastFrameTimeRef.current) / 1000
-      lastFrameTimeRef.current = time
-      elapsedTimeRef.current += deltaTime * timeScaleRef.current
+    const { device, context, pipeline, uniformBuffer, uniformBindGroup, uniformLayout } = state
 
-      // Call onFrame callback with current frame info
-      if (onFrameRef.current) {
-        onFrameRef.current(buildFrameInfo(deltaTime))
-      }
+    // Handle canvas resize with high-DPI support
+    const dpr = dprRef.current
+    const displayWidth = canvas.clientWidth
+    const displayHeight = canvas.clientHeight
 
-      const { device, context, pipeline, uniformBuffer, uniformBindGroup, uniformLayout } = state
-
-      // Handle canvas resize with high-DPI support
-      const dpr = dprRef.current
-      const displayWidth = canvas.clientWidth
-      const displayHeight = canvas.clientHeight
-
-      // Skip rendering if canvas has zero size
-      if (displayWidth === 0 || displayHeight === 0) {
-        animationFrameRef.current = requestAnimationFrame(render)
-        return
-      }
-
-      const bufferWidth = Math.round(displayWidth * dpr)
-      const bufferHeight = Math.round(displayHeight * dpr)
-      if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
-        canvas.width = bufferWidth
-        canvas.height = bufferHeight
-      }
-
-      // Build default uniform values
-      const defaultValues: Record<string, GpuUniformValue> = {
-        iTime: elapsedTimeRef.current,
-        iMouseLeftDown: mouseLeftDownRef.current ? 1.0 : 0.0,
-        iResolution: [canvas.width, canvas.height],
-        iMouse: mouseRef.current,
-        iMouseNormalized: mouseNormalizedRef.current,
-      }
-
-      // Merge with custom uniforms and auto-generate _count values for arrays
-      const allValues: Record<string, GpuUniformValue> = { ...defaultValues, ...uniformsRef.current }
-      if (uniformsRef.current) {
-        for (const [name, value] of Object.entries(uniformsRef.current)) {
-          if (isVec4Array(value)) {
-            allValues[`${name}_count`] = value.length
-          }
-        }
-      }
-
-      // Pack uniforms into buffer according to layout
-      const uniformData = new Float32Array(uniformLayout.bufferSize / 4)
-      for (const field of uniformLayout.fields) {
-        const value = allValues[field.name]
-        if (value === undefined) {
-          continue
-        }
-        packUniformValue(field, value, uniformData)
-      }
-      device.queue.writeBuffer(uniformBuffer, 0, uniformData)
-
-      // console.log("uniformData", uniformData)
-
-      // Create command encoder and render pass
-      const commandEncoder = device.createCommandEncoder()
-      const textureView = context.getCurrentTexture().createView()
-
-      const renderPass = commandEncoder.beginRenderPass({
-        colorAttachments: [
-          {
-            view: textureView,
-            clearValue: { r: 0, g: 0, b: 0, a: 1 },
-            loadOp: "clear",
-            storeOp: "store",
-          },
-        ],
-      })
-
-      renderPass.setPipeline(pipeline)
-      renderPass.setBindGroup(0, uniformBindGroup)
-      renderPass.draw(3)
-      renderPass.end()
-
-      device.queue.submit([commandEncoder.finish()])
-
-      // Continue render loop
+    // Skip rendering if canvas has zero size
+    if (displayWidth === 0 || displayHeight === 0) {
       animationFrameRef.current = requestAnimationFrame(render)
-    },
-    [buildFrameInfo],
-  )
+      return
+    }
+
+    const bufferWidth = Math.round(displayWidth * dpr)
+    const bufferHeight = Math.round(displayHeight * dpr)
+    if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
+      canvas.width = bufferWidth
+      canvas.height = bufferHeight
+    }
+
+    // Build default uniform values
+    const defaultValues: Record<string, GpuUniformValue> = {
+      iTime: elapsedTimeRef.current,
+      iMouseLeftDown: mouseLeftDownRef.current ? 1.0 : 0.0,
+      iResolution: [canvas.width, canvas.height],
+      iMouse: mouseRef.current,
+      iMouseNormalized: mouseNormalizedRef.current,
+    }
+
+    // Merge with custom uniforms and auto-generate _count values for arrays
+    const allValues: Record<string, GpuUniformValue> = { ...defaultValues, ...uniformsRef.current }
+    if (uniformsRef.current) {
+      for (const [name, value] of Object.entries(uniformsRef.current)) {
+        if (isVec4Array(value)) {
+          allValues[`${name}_count`] = value.length
+        }
+      }
+    }
+
+    // Pack uniforms into buffer according to layout
+    const uniformData = new Float32Array(uniformLayout.bufferSize / 4)
+    for (const field of uniformLayout.fields) {
+      const value = allValues[field.name]
+      if (value === undefined) {
+        continue
+      }
+      packUniformValue(field, value, uniformData)
+    }
+    device.queue.writeBuffer(uniformBuffer, 0, uniformData)
+
+    // console.log("uniformData", uniformData)
+
+    // Create command encoder and render pass
+    const commandEncoder = device.createCommandEncoder()
+    const textureView = context.getCurrentTexture().createView()
+
+    const renderPass = commandEncoder.beginRenderPass({
+      colorAttachments: [
+        {
+          view: textureView,
+          clearValue: { r: 0, g: 0, b: 0, a: 1 },
+          loadOp: "clear",
+          storeOp: "store",
+        },
+      ],
+    })
+
+    renderPass.setPipeline(pipeline)
+    renderPass.setBindGroup(0, uniformBindGroup)
+    renderPass.draw(3)
+    renderPass.end()
+
+    device.queue.submit([commandEncoder.finish()])
+
+    // Continue render loop
+    animationFrameRef.current = requestAnimationFrame(render)
+  }, [])
 
   // Initialize WebGPU and start render loop
   useEffect(() => {
@@ -609,29 +615,29 @@ export function useWebGPU(options: UseWebGPUOptions) {
         (mouseRef.current[1] - canvas.height / 2) / minDimension,
       ]
 
-      onMouseMoveRef.current?.(buildFrameInfo(0))
+      onMouseMoveRef.current?.(frameInfoRef.current)
     }
 
     const handleMouseDown = (event: MouseEvent) => {
       if (event.button === 0) {
         mouseLeftDownRef.current = true
       }
-      onMouseDownRef.current?.(buildFrameInfo(0))
+      onMouseDownRef.current?.(frameInfoRef.current)
     }
 
     const handleMouseUp = (event: MouseEvent) => {
       if (event.button === 0) {
         mouseLeftDownRef.current = false
       }
-      onMouseUpRef.current?.(buildFrameInfo(0))
+      onMouseUpRef.current?.(frameInfoRef.current)
     }
 
     const handleClick = () => {
-      onClickRef.current?.(buildFrameInfo(0))
+      onClickRef.current?.(frameInfoRef.current)
     }
 
     const handleMouseWheel = (event: WheelEvent) => {
-      onMouseWheelRef.current?.(buildFrameInfo(0), event.deltaY)
+      onMouseWheelRef.current?.(frameInfoRef.current, event.deltaY)
     }
 
     window.addEventListener("mousemove", handleMouseMove)
@@ -649,7 +655,7 @@ export function useWebGPU(options: UseWebGPUOptions) {
       canvas.removeEventListener("click", handleClick)
       window.removeEventListener("wheel", handleMouseWheel)
     }
-  }, [buildFrameInfo])
+  }, [])
 
   return { canvasRef, mouseRef }
 }
