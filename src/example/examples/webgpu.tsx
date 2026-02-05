@@ -17,20 +17,20 @@ ${generateDistortionRippleFunctionGpu()}
 ${generateSimplexNoiseFunctionGpu()}
 
 fn mainImage(uv0: vec2f) -> vec4f {
-  var uv = uv0;
+  var uv = uv0 * uniforms.scale;
 
   for (var i: i32 = 1; i < i32(uniforms.ripples_count); i++) {
     uv += DistortionRipple(
       uv,
       uniforms.ripples[i].xy,
-      uniforms.ripples[i][2],
-      uniforms.ripples[i][3] * 0.1,
-      0.05
+      uniforms.ripples[i][2] * uniforms.rippleRadius,
+      uniforms.ripples[i][3] * uniforms.rippleIntensity,
+      uniforms.rippleThickness
     );
   }
 
-  let noiseValueX = SimplexNoise3D(vec3(uv / 0.1, uniforms.iTime)) * 0.1;
-  let noiseValueY = SimplexNoise3D(vec3(uv / 0.1, -uniforms.iTime)) * 0.1;
+  let noiseValueX = SimplexNoise3D(vec3(uv / 0.3, uniforms.iTime)) * 0.1;
+  let noiseValueY = SimplexNoise3D(vec3(uv / 0.3, -uniforms.iTime)) * 0.1;
   let noiseValue = vec2(noiseValueX, noiseValueY);
 
   uv += noiseValue * 0.1;
@@ -53,7 +53,10 @@ export function WebGpuDemo() {
   const lastMouseMoveRef = useRef<number>(0)
   const ripplesRef = useRef<Vec4Array>([[0, 0, 0, 0]])
   const [scale, setScale] = useState<number>(1)
-  const [rippleSpeed, setRippleSpeed] = useState<number>(0.5)
+  const [rippleSpeed, _setRippleSpeed] = useState<number>(0.5)
+  const [rippleRadius, _setRippleRadius] = useState<number>(0.5)
+  const [rippleIntensity, _setRippleIntensity] = useState<number>(0.2)
+  const [rippleThickness, _setRippleThickness] = useState<number>(0.02)
   const [ripples, setRipples] = useState<Vec4Array>([[0, 0, 0, 0]])
 
   const onMouseMove = useCallback(
@@ -100,17 +103,29 @@ export function WebGpuDemo() {
     [rippleSpeed],
   )
 
+  const onMouseWheel = useCallback(
+    (info: FrameInfo, wheelDelta: number) => {
+      setScale(scale + wheelDelta * 0.1)
+    },
+    [scale],
+  )
+
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       <ReactGpuShader
         fragment={gradientShader}
         uniforms={{
+          scale,
           ripples,
+          rippleRadius,
+          rippleIntensity,
+          rippleThickness,
         }}
         timeScale={0.5}
         onFrame={onFrame}
         onMouseMove={onMouseMove}
         onMouseDown={onMouseDown}
+        onMouseWheel={onMouseWheel}
       />
       <div
         style={{

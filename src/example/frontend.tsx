@@ -8,6 +8,8 @@
 import { StrictMode, useState } from "react"
 import { createRoot } from "react-dom/client"
 import "./style.css"
+import { WebGpuMandelbrotDemo } from "./examples/mandelbrot"
+import { WebGpuMandelbrotDemo2 } from "./examples/mandelbrot2"
 import { WebGlDemo } from "./examples/webgl"
 import { WebGpuDemo } from "./examples/webgpu"
 
@@ -29,7 +31,7 @@ if (import.meta.hot) {
   createRoot(elem).render(app)
 }
 
-type Demo = "webgl" | "webgpu"
+type Demo = "webgl" | "webgpu" | "mandelbrot" | "mandelbrot2"
 
 export function App() {
   const [demo, setDemo] = useState<Demo>("webgpu")
@@ -51,9 +53,25 @@ export function App() {
         >
           WebGPU
         </button>
+        <button
+          type="button"
+          onClick={() => setDemo("mandelbrot")}
+          style={{ marginRight: 10, opacity: demo === "mandelbrot" ? 1 : 0.5 }}
+        >
+          Mandelbrot
+        </button>
+        <button
+          type="button"
+          onClick={() => setDemo("mandelbrot2")}
+          style={{ marginRight: 10, opacity: demo === "mandelbrot2" ? 1 : 0.5 }}
+        >
+          Mandelbrot2
+        </button>
       </div>
       {demo === "webgl" && <WebGlDemo />}
       {demo === "webgpu" && <WebGpuDemo />}
+      {demo === "mandelbrot" && <WebGpuMandelbrotDemo />}
+      {demo === "mandelbrot2" && <WebGpuMandelbrotDemo2 />}
     </div>
   )
 }
