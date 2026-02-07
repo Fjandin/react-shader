@@ -9,11 +9,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-bun run build       # Build ESM, CJS, and TypeScript declarations
-bun run lint        # Run Biome linter/formatter check (run with --write to fix issues)
-bun run typecheck   # Type-check without emitting
-bun run example     # Start example dev server
-bun run clean       # Remove dist/ directory
+bun run build        # Build ESM, CJS, and TypeScript declarations
+bun run lint         # Run Biome linter/formatter check
+bun run lint --write # Run Biome linter/formatter fixer
+bun run typecheck    # Type-check without emitting
+bun run example      # Start example dev server
+bun run clean        # Remove dist/ directory
 ```
 
 ## Architecture

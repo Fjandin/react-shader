@@ -7,6 +7,9 @@ export type Vec2Array = Vec2[]
 export type Vec3Array = Vec3[]
 export type Vec4Array = Vec4[]
 
+// Supported GPU uniform types (no textures)
+export type GpuUniformValue = number | Vec2 | Vec3 | Vec4 | Vec4Array
+
 export type TextureSource =
   | HTMLImageElement
   | HTMLCanvasElement

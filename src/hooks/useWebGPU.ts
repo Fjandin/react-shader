@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef } from "react"
-import type { FrameInfo, Vec2, Vec3, Vec4, Vec4Array } from "../types"
-
-// Supported GPU uniform types (no textures)
-type GpuUniformValue = number | Vec2 | Vec3 | Vec4 | Vec4Array
+import type { FrameInfo, GpuUniformValue, Vec2, Vec3, Vec4, Vec4Array } from "../types"
 
 interface UseWebGPUOptions {
   fragment: string
@@ -407,6 +404,8 @@ export function useWebGPU(options: UseWebGPUOptions) {
   const fragmentRef = useRef(options.fragment)
   const uniformsRef = useRef(options.uniforms)
   const dprRef = useRef(window.devicePixelRatio || 1)
+  const uniformDataRef = useRef<Float32Array<ArrayBuffer> | null>(null)
+  const allValuesRef = useRef<Record<string, GpuUniformValue>>({})
   const frameInfoRef = useRef<FrameInfo>({
     deltaTime: 0,
     time: 0,
@@ -440,14 +439,14 @@ export function useWebGPU(options: UseWebGPUOptions) {
     lastFrameTimeRef.current = time
     elapsedTimeRef.current += deltaTime * timeScaleRef.current
 
-    frameInfoRef.current = {
-      deltaTime: deltaTime,
-      time: elapsedTimeRef.current,
-      resolution: [canvas.width, canvas.height],
-      mouse: mouseRef.current,
-      mouseNormalized: mouseNormalizedRef.current,
-      mouseLeftDown: mouseLeftDownRef.current,
-    }
+    const info = frameInfoRef.current
+    info.deltaTime = deltaTime
+    info.time = elapsedTimeRef.current
+    info.resolution[0] = canvas.width
+    info.resolution[1] = canvas.height
+    info.mouse = mouseRef.current
+    info.mouseNormalized = mouseNormalizedRef.current
+    info.mouseLeftDown = mouseLeftDownRef.current
 
     // Call onFrame callback with current frame info
     if (onFrameRef.current) {
@@ -474,27 +473,27 @@ export function useWebGPU(options: UseWebGPUOptions) {
       canvas.height = bufferHeight
     }
 
-    // Build default uniform values
-    const defaultValues: Record<string, GpuUniformValue> = {
-      iTime: elapsedTimeRef.current,
-      iMouseLeftDown: mouseLeftDownRef.current ? 1.0 : 0.0,
-      iResolution: [canvas.width, canvas.height],
-      iMouse: mouseRef.current,
-      iMouseNormalized: mouseNormalizedRef.current,
-    }
+    // Update default uniform values in-place
+    const allValues = allValuesRef.current
+    allValues.iTime = elapsedTimeRef.current
+    allValues.iMouseLeftDown = mouseLeftDownRef.current ? 1.0 : 0.0
+    allValues.iResolution = [canvas.width, canvas.height]
+    allValues.iMouse = mouseRef.current
+    allValues.iMouseNormalized = mouseNormalizedRef.current
 
-    // Merge with custom uniforms and auto-generate _count values for arrays
-    const allValues: Record<string, GpuUniformValue> = { ...defaultValues, ...uniformsRef.current }
+    // Merge custom uniforms and auto-generate _count values for arrays
     if (uniformsRef.current) {
       for (const [name, value] of Object.entries(uniformsRef.current)) {
+        allValues[name] = value
         if (isVec4Array(value)) {
           allValues[`${name}_count`] = value.length
         }
       }
     }
 
-    // Pack uniforms into buffer according to layout
-    const uniformData = new Float32Array(uniformLayout.bufferSize / 4)
+    // Pack uniforms into pre-allocated buffer according to layout
+    const uniformData = uniformDataRef.current!
+    uniformData.fill(0)
     for (const field of uniformLayout.fields) {
       const value = allValues[field.name]
       if (value === undefined) {
@@ -503,8 +502,6 @@ export function useWebGPU(options: UseWebGPUOptions) {
       packUniformValue(field, value, uniformData)
     }
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
-
-    // console.log("uniformData", uniformData)
 
     // Create command encoder and render pass
     const commandEncoder = device.createCommandEncoder()
@@ -547,6 +544,7 @@ export function useWebGPU(options: UseWebGPUOptions) {
           return
         }
         stateRef.current = state
+        uniformDataRef.current = new Float32Array(state.uniformLayout.bufferSize / 4)
         elapsedTimeRef.current = 0
         lastFrameTimeRef.current = 0
         animationFrameRef.current = requestAnimationFrame(render)
