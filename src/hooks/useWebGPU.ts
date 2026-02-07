@@ -20,7 +20,6 @@ interface StorageBufferEntry {
   binding: number
   buffer: GPUBuffer
   currentLength: number
-  dataLength: number
   packingArray: Float32Array<ArrayBuffer>
 }
 
@@ -33,8 +32,6 @@ interface WebGPUState {
   uniformLayout: UniformLayout
   bindGroupLayout: GPUBindGroupLayout
   storageBuffers: StorageBufferEntry[]
-  renderPassDescriptor: GPURenderPassDescriptor
-  submitArray: GPUCommandBuffer[]
 }
 
 type WgslBaseType = "f32" | "vec2f" | "vec3f" | "vec4f"
@@ -210,11 +207,12 @@ function createStorageBuffer(device: GPUDevice, name: string, binding: number, d
   }
   device.queue.writeBuffer(buffer, 0, packingArray)
 
-  return { name, binding, buffer, currentLength: length, dataLength: data.length, packingArray }
+  return { name, binding, buffer, currentLength: length, packingArray }
 }
 
 function packAndUploadStorageBuffer(device: GPUDevice, entry: StorageBufferEntry, data: Vec4Array): void {
   const arr = entry.packingArray
+  arr.fill(0)
   for (let i = 0; i < data.length; i++) {
     const off = i * 4
     arr[off] = data[i][0]
@@ -222,8 +220,7 @@ function packAndUploadStorageBuffer(device: GPUDevice, entry: StorageBufferEntry
     arr[off + 2] = data[i][2]
     arr[off + 3] = data[i][3]
   }
-  const uploadLength = Math.max(entry.dataLength, 1)
-  device.queue.writeBuffer(entry.buffer, 0, arr, 0, uploadLength * 4)
+  device.queue.writeBuffer(entry.buffer, 0, arr)
 }
 
 function rebuildBindGroup(state: WebGPUState): GPUBindGroup {
@@ -375,17 +372,6 @@ async function initializeWebGPU(
     uniformLayout,
     bindGroupLayout,
     storageBuffers,
-    renderPassDescriptor: {
-      colorAttachments: [
-        {
-          view: undefined as unknown as GPUTextureView,
-          clearValue: { r: 0, g: 0, b: 0, a: 1 },
-          loadOp: "clear" as const,
-          storeOp: "store" as const,
-        },
-      ],
-    },
-    submitArray: [null as unknown as GPUCommandBuffer],
   }
 }
 
@@ -405,7 +391,6 @@ export function useWebGPU(options: UseWebGPUOptions) {
   const lastFrameTimeRef = useRef<number>(0)
   const mouseRef = useRef<[number, number]>([0, 0])
   const mouseNormalizedRef = useRef<[number, number]>([0, 0])
-  const resolutionRef = useRef<[number, number]>([0, 0])
   const mouseLeftDownRef = useRef<boolean>(false)
   const canvasRectRef = useRef<DOMRect | null>(null)
   const onErrorRef = useRef(options.onError)
@@ -494,22 +479,20 @@ export function useWebGPU(options: UseWebGPUOptions) {
     const allValues = allValuesRef.current
     allValues.iTime = elapsedTimeRef.current
     allValues.iMouseLeftDown = mouseLeftDownRef.current ? 1.0 : 0.0
-    resolutionRef.current[0] = canvas.width
-    resolutionRef.current[1] = canvas.height
-    allValues.iResolution = resolutionRef.current
+    allValues.iResolution = [canvas.width, canvas.height]
     allValues.iMouse = mouseRef.current
     allValues.iMouseNormalized = mouseNormalizedRef.current
 
     // Merge custom uniforms
-    const customs = uniformsRef.current
-    if (customs) {
-      for (const name in customs) {
-        allValues[name] = customs[name]
+    if (uniformsRef.current) {
+      for (const [name, value] of Object.entries(uniformsRef.current)) {
+        allValues[name] = value
       }
     }
 
     // Pack uniforms into pre-allocated buffer according to layout
     const uniformData = uniformDataRef.current as Float32Array<ArrayBuffer>
+    uniformData.fill(0)
     for (const field of uniformLayout.fields) {
       const value = allValues[field.name]
       if (value === undefined) {
@@ -526,21 +509,19 @@ export function useWebGPU(options: UseWebGPUOptions) {
       if (!data) continue
 
       const requiredLength = Math.max(data.length, 1)
-      if (requiredLength > entry.currentLength || requiredLength < entry.currentLength / 2) {
-        // Buffer needs resize — over-allocate to reduce rebuilds
-        const allocLength = Math.max(Math.ceil(requiredLength * 1.5), 1)
+      if (requiredLength !== entry.currentLength) {
+        // Buffer size changed — recreate
         entry.buffer.destroy()
-        const byteSize = allocLength * 16
+        const byteSize = requiredLength * 16
         entry.buffer = device.createBuffer({
           label: `storage: ${entry.name}`,
           size: byteSize,
           usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         })
-        entry.packingArray = new Float32Array(allocLength * 4)
-        entry.currentLength = allocLength
+        entry.packingArray = new Float32Array(requiredLength * 4)
+        entry.currentLength = requiredLength
         needsBindGroupRebuild = true
       }
-      entry.dataLength = data.length
 
       packAndUploadStorageBuffer(device, entry, data)
     }
@@ -552,16 +533,24 @@ export function useWebGPU(options: UseWebGPUOptions) {
     // Create command encoder and render pass
     const commandEncoder = device.createCommandEncoder()
     const textureView = context.getCurrentTexture().createView()
-    ;(state.renderPassDescriptor.colorAttachments as GPURenderPassColorAttachment[])[0].view = textureView
-    const renderPass = commandEncoder.beginRenderPass(state.renderPassDescriptor)
+
+    const renderPass = commandEncoder.beginRenderPass({
+      colorAttachments: [
+        {
+          view: textureView,
+          clearValue: { r: 0, g: 0, b: 0, a: 1 },
+          loadOp: "clear",
+          storeOp: "store",
+        },
+      ],
+    })
 
     renderPass.setPipeline(pipeline)
     renderPass.setBindGroup(0, state.uniformBindGroup)
     renderPass.draw(3)
     renderPass.end()
 
-    state.submitArray[0] = commandEncoder.finish()
-    device.queue.submit(state.submitArray)
+    device.queue.submit([commandEncoder.finish()])
 
     // Continue render loop
     animationFrameRef.current = requestAnimationFrame(render)
