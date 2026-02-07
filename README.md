@@ -1,6 +1,6 @@
 # @fjandin/react-shader
 
-A React component for rendering WebGL fragment and vertex shaders. Designed to work with Shadertoy-style shaders with automatic uniform handling.
+A React component library for rendering WebGL and WebGPU shaders. Provides `<ReactShader>` for GLSL (Shadertoy-style) and `<ReactGpuShader>` for WGSL (WebGPU) with automatic uniform handling, texture support, storage buffers, and audio reactivity.
 
 ## Installation
 
@@ -12,7 +12,11 @@ yarn add @fjandin/react-shader
 bun add @fjandin/react-shader
 ```
 
-## Basic Usage
+## Components
+
+### `<ReactShader>` (WebGL)
+
+Renders GLSL fragment shaders. Uses WebGL2 with WebGL1 fallback.
 
 ```tsx
 import { ReactShader } from "@fjandin/react-shader"
@@ -41,7 +45,34 @@ function App() {
 }
 ```
 
+### `<ReactGpuShader>` (WebGPU)
+
+Renders WGSL fragment shaders using WebGPU. Supports storage buffers for large array data.
+
+```tsx
+import { ReactGpuShader } from "@fjandin/react-shader"
+
+const fragment = /*wgsl*/ `
+fn mainImage(uv: vec2f) -> vec4f {
+  let color = 0.5 + 0.5 * cos(uniforms.iTime + vec3f(uv, 0.0) + vec3f(0.0, 2.0, 4.0));
+  return vec4f(color, 1.0);
+}
+`
+
+function App() {
+  return (
+    <div style={{ width: "800px", height: "600px" }}>
+      <ReactGpuShader fragment={fragment} />
+    </div>
+  )
+}
+```
+
+WebGPU shaders define a `mainImage(uv: vec2f) -> vec4f` function. Built-in uniforms are accessed via `uniforms.iTime`, `uniforms.iResolution`, etc. The component automatically generates the uniform struct and wrapping `@fragment` entry point.
+
 ## Props
+
+### ReactShader
 
 | Prop | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
@@ -54,22 +85,44 @@ function App() {
 | `onFrame` | `(info: FrameInfo) => void` | No | - | Callback invoked on each frame |
 | `onClick` | `(info: FrameInfo) => void` | No | - | Callback invoked on canvas click |
 | `onMouseMove` | `(info: FrameInfo) => void` | No | - | Callback invoked on mouse move |
+| `onMouseDown` | `(info: FrameInfo) => void` | No | - | Callback invoked on mouse button press |
+| `onMouseUp` | `(info: FrameInfo) => void` | No | - | Callback invoked on mouse button release |
+| `onMouseWheel` | `(info: FrameInfo, wheelDelta: number) => void` | No | - | Callback invoked on mouse wheel scroll |
+
+### ReactGpuShader
+
+| Prop | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `fragment` | `string` | Yes | - | WGSL fragment shader source code |
+| `uniforms` | `Record<string, GpuUniformValue>` | No | `{}` | Custom uniform values (`number`, `Vec2`, `Vec3`, `Vec4`) |
+| `storageBuffers` | `Record<string, Vec4Array>` | No | - | Named storage buffers of `Vec4` arrays |
+| `className` | `string` | No | - | CSS class name for the canvas |
+| `fullscreen` | `boolean` | No | `false` | Render as fixed fullscreen overlay |
+| `timeScale` | `number` | No | `1` | Scale factor for elapsed time |
+| `onFrame` | `(info: FrameInfo) => void` | No | - | Callback invoked on each frame |
+| `onClick` | `(info: FrameInfo) => void` | No | - | Callback invoked on canvas click |
+| `onMouseMove` | `(info: FrameInfo) => void` | No | - | Callback invoked on mouse move |
+| `onMouseDown` | `(info: FrameInfo) => void` | No | - | Callback invoked on mouse button press |
+| `onMouseUp` | `(info: FrameInfo) => void` | No | - | Callback invoked on mouse button release |
+| `onMouseWheel` | `(info: FrameInfo, wheelDelta: number) => void` | No | - | Callback invoked on mouse wheel scroll |
 
 ## Built-in Uniforms
 
 These uniforms are automatically provided to your shader every frame:
 
-| Uniform | GLSL Type | Description |
-|---------|-----------|-------------|
-| `iTime` | `float` | Elapsed time in seconds (scaled by `timeScale` prop) |
-| `iMouse` | `vec2` | Mouse position in pixels (Y=0 at bottom) |
-| `iMouseNormalized` | `vec2` | Mouse position normalized with aspect correction (shorter axis -0.5 to 0.5, center is 0,0) |
-| `iMouseLeftDown` | `float` | `1.0` when left mouse button is pressed, `0.0` otherwise |
-| `iResolution` | `vec2` | Canvas resolution in pixels (includes high-DPI scaling) |
+| Uniform | GLSL Type | WGSL Type | Description |
+|---------|-----------|-----------|-------------|
+| `iTime` | `float` | `f32` | Elapsed time in seconds (scaled by `timeScale`) |
+| `iMouse` | `vec2` | `vec2f` | Mouse position in pixels (Y=0 at bottom) |
+| `iMouseNormalized` | `vec2` | `vec2f` | Mouse position normalized with aspect correction (shorter axis -0.5 to 0.5, center is 0,0) |
+| `iMouseLeftDown` | `float` | `f32` | `1.0` when left mouse button is pressed, `0.0` otherwise |
+| `iResolution` | `vec2` | `vec2f` | Canvas resolution in pixels (includes high-DPI scaling) |
 
 ## Custom Uniforms
 
-Pass custom uniform values via the `uniforms` prop:
+### WebGL (ReactShader)
+
+Pass custom uniform values via the `uniforms` prop. Supports scalars, vectors, arrays, and textures:
 
 ```tsx
 <ReactShader
@@ -96,8 +149,28 @@ Supported types:
 - `[number, number][]` → `vec2[N]`
 - `[number, number, number][]` → `vec3[N]`
 - `[number, number, number, number][]` → `vec4[N]`
+- `HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | ImageBitmap | ImageData | OffscreenCanvas` → `sampler2D` (texture)
+- `TextureOptions` object → `sampler2D` with wrap/filter configuration
 
-### Array Count Uniforms
+### WebGPU (ReactGpuShader)
+
+Custom uniforms support scalar and vector types:
+
+```tsx
+<ReactGpuShader
+  fragment={fragment}
+  uniforms={{
+    scale: 2.0,            // f32
+    offset: [0.5, 0.5],   // vec2f
+    color: [1.0, 0.5, 0.2], // vec3f
+    transform: [1, 0, 0, 1], // vec4f
+  }}
+/>
+```
+
+Custom uniforms are accessed via `uniforms.scale`, `uniforms.color`, etc. in your WGSL code.
+
+## Array Count Uniforms (WebGL)
 
 For array uniforms, an additional `_count` uniform is automatically created and set:
 
@@ -113,7 +186,59 @@ for (int i = 0; i < points_count; i++) {
 }
 ```
 
-## Automatic Uniform Injection
+## Storage Buffers (WebGPU)
+
+For large dynamic array data, `ReactGpuShader` supports storage buffers. These are more efficient than uniforms for large datasets and support dynamic resizing:
+
+```tsx
+const [particles, setParticles] = useState<Vec4Array>([
+  [0, 0, 0.5, 1],
+  [1, 1, 0.3, 0.8],
+])
+
+<ReactGpuShader
+  fragment={fragment}
+  storageBuffers={{ particles }}
+/>
+```
+
+In WGSL, storage buffers are declared as `array<vec4f>` and accessed by name:
+
+```wgsl
+fn mainImage(uv: vec2f) -> vec4f {
+  for (var i: u32 = 0; i < arrayLength(&particles); i++) {
+    let p = particles[i];
+    // Use p.xy as position, p.z as radius, p.w as intensity...
+  }
+  return vec4f(0.0);
+}
+```
+
+Storage buffers use over-allocation (1.5x growth) to minimize GPU buffer rebuilds when array sizes change frequently.
+
+## Texture Uniforms (WebGL)
+
+Pass images, canvases, or video elements as texture uniforms:
+
+```tsx
+<ReactShader
+  fragment={fragment}
+  uniforms={{
+    myTexture: imageElement,
+    // or with options:
+    myTexture: {
+      source: imageElement,
+      wrapS: "repeat",   // "repeat" | "clamp" | "mirror"
+      wrapT: "repeat",
+      minFilter: "linear", // "nearest" | "linear" | "mipmap"
+      magFilter: "linear", // "nearest" | "linear"
+      flipY: true,
+    },
+  }}
+/>
+```
+
+## Automatic Uniform Injection (WebGL)
 
 Instead of manually declaring uniforms in your shader, you can use the `// @UNIFORM_VALUES` marker to automatically inject all uniform declarations:
 
@@ -138,15 +263,99 @@ void main() {
 />
 ```
 
-The marker gets replaced with declarations for both built-in uniforms (`iTime`, `iMouse`, `iMouseNormalized`, `iMouseLeftDown`, `iResolution`) and your custom uniforms:
+The marker gets replaced with declarations for both built-in uniforms (`iTime`, `iMouse`, `iMouseNormalized`, `iMouseLeftDown`, `iResolution`) and your custom uniforms.
 
-```glsl
-uniform float iTime;
-uniform vec2 iMouse;
-uniform vec2 iMouseNormalized;
-uniform float iMouseLeftDown;
-uniform vec2 iResolution;
-uniform vec3 baseColor;
+## Audio Reactivity
+
+The `useAudio` hook provides real-time audio analysis for audio-reactive shaders:
+
+```tsx
+import { ReactShader, useAudio } from "@fjandin/react-shader"
+
+function AudioVisualizer() {
+  const audio = useAudio({
+    source: "microphone", // "microphone" | "element" | "display"
+    smoothing: 0.9,       // 0-1, lerp factor between frames
+  })
+
+  return (
+    <>
+      <button onClick={() => audio.isRunning ? audio.stop() : audio.start()}>
+        {audio.isRunning ? "Stop" : "Start"}
+      </button>
+      <ReactShader
+        fragment={fragment}
+        uniforms={{
+          audioLow: audio.levels.low,
+          audioMid: audio.levels.mid,
+          audioHigh: audio.levels.high,
+        }}
+      />
+    </>
+  )
+}
+```
+
+`useAudio` options:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `source` | `"microphone" \| "element" \| "display"` | `"microphone"` | Audio input source |
+| `mediaElement` | `HTMLAudioElement \| HTMLVideoElement` | - | Media element (when `source` is `"element"`) |
+| `fftSize` | `number` | `2048` | FFT size for frequency analysis |
+| `smoothingTimeConstant` | `number` | `0.8` | AnalyserNode smoothing |
+| `smoothing` | `number` | `0.9` | Frame-to-frame lerp factor (0 = instant, 0.9 = very smooth) |
+
+`useAudio` return value:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `levels` | `AudioLevels` | `{ low, mid, high, bands }` - normalized 0-1 frequency levels |
+| `frequencyData` | `Uint8Array \| null` | Raw frequency data |
+| `state` | `AudioConnectionState` | `"disconnected" \| "connecting" \| "connected" \| "error"` |
+| `error` | `Error \| null` | Connection error if any |
+| `start` | `() => Promise<void>` | Start audio capture |
+| `stop` | `() => void` | Stop audio capture |
+| `isRunning` | `boolean` | Whether audio is currently capturing |
+
+## Shader Helper Functions
+
+Pre-built shader functions are available for both GLSL and WGSL:
+
+```tsx
+import {
+  // GLSL (WebGL)
+  generateSimplexNoiseFunction,
+  generateColorPaletteFunction,
+  generateDistortionRippleFunction,
+  generateSceneCirclesFunction,
+  generateUtilsFunction,
+  // WGSL (WebGPU)
+  generateSimplexNoiseFunctionGpu,
+  generateColorPaletteFunctionGpu,
+  generateDistortionRippleFunctionGpu,
+  generateSceneCirclesFunctionGpu,
+} from "@fjandin/react-shader"
+```
+
+Inject them into your shader source:
+
+```tsx
+// GLSL
+const fragment = `#version 300 es
+precision highp float;
+${generateSimplexNoiseFunction()}
+// Use SimplexNoise3D(vec3 v) in your shader...
+`
+
+// WGSL
+const fragment = /*wgsl*/ `
+${generateSimplexNoiseFunctionGpu()}
+fn mainImage(uv: vec2f) -> vec4f {
+  let n = SimplexNoise3D(vec3f(uv, uniforms.iTime));
+  return vec4f(vec3f(n), 1.0);
+}
+`
 ```
 
 ## Frame Callback
@@ -191,9 +400,21 @@ import type {
   Vec3Array,
   Vec4Array,
   UniformValue,
+  GpuStorageBuffers,
   DefaultUniforms,
   FrameInfo,
   ReactShaderProps,
+  ReactGpuShaderProps,
+  TextureSource,
+  TextureOptions,
+  TextureWrap,
+  TextureMinFilter,
+  TextureMagFilter,
+  AudioLevels,
+  AudioConnectionState,
+  AudioSourceType,
+  UseAudioOptions,
+  UseAudioReturn,
 } from "@fjandin/react-shader"
 ```
 
@@ -214,12 +435,17 @@ const declarations = generateUniformDeclarations({
 
 ## Features
 
-- WebGL2 with WebGL1 fallback
+- WebGL2 with WebGL1 fallback (`ReactShader`)
+- WebGPU support with WGSL shaders (`ReactGpuShader`)
+- Storage buffers for large dynamic arrays (WebGPU)
+- Texture uniforms with configurable wrap/filter modes (WebGL)
+- Audio reactivity via `useAudio` hook
+- Pre-built shader functions (simplex noise, color palettes, distortion ripples, circles)
 - High-DPI display support with automatic DPR change detection
 - Automatic canvas resizing
 - Shader compilation error display
 - Context loss/restoration handling
-- Mouse tracking with WebGL coordinate convention
+- Mouse tracking with WebGL/WebGPU coordinate convention
 - Optimized render loop with minimal per-frame allocations
 
 ## Requirements
