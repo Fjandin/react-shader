@@ -4,6 +4,7 @@ import type { FrameInfo, GpuUniformValue, Vec2, Vec3, Vec4, Vec4Array } from "..
 interface UseWebGPUOptions {
   fragment: string
   uniforms?: Record<string, GpuUniformValue>
+  storageBuffers?: Record<string, Vec4Array>
   onError?: (error: Error) => void
   timeScale?: number
   onFrame?: (info: FrameInfo) => void
@@ -14,6 +15,14 @@ interface UseWebGPUOptions {
   onMouseWheel?: (info: FrameInfo, wheelDelta: number) => void
 }
 
+interface StorageBufferEntry {
+  name: string
+  binding: number
+  buffer: GPUBuffer
+  currentLength: number
+  packingArray: Float32Array<ArrayBuffer>
+}
+
 interface WebGPUState {
   device: GPUDevice
   context: GPUCanvasContext
@@ -21,19 +30,17 @@ interface WebGPUState {
   uniformBuffer: GPUBuffer
   uniformBindGroup: GPUBindGroup
   uniformLayout: UniformLayout
+  bindGroupLayout: GPUBindGroupLayout
+  storageBuffers: StorageBufferEntry[]
 }
 
 type WgslBaseType = "f32" | "vec2f" | "vec3f" | "vec4f"
-type WgslType = WgslBaseType | `array<${WgslBaseType}, ${number}>`
 
 interface UniformField {
   name: string
-  type: WgslType
+  type: WgslBaseType
   offset: number
   size: number
-  isArray?: boolean
-  arrayLength?: number
-  elementStride?: number
 }
 
 interface UniformLayout {
@@ -54,38 +61,11 @@ function isVec4(value: GpuUniformValue): value is Vec4 {
   return Array.isArray(value) && value.length === 4 && typeof value[0] === "number"
 }
 
-function isVec4Array(value: GpuUniformValue): value is Vec4Array {
-  return Array.isArray(value) && value.length > 0 && Array.isArray(value[0]) && value[0].length === 4
-}
-
-interface InferredType {
-  wgslType: WgslType
-  baseType: WgslBaseType
-  isArray: boolean
-  arrayLength: number
-}
-
-function inferWgslType(value: GpuUniformValue): InferredType {
-  if (typeof value === "number") {
-    return { wgslType: "f32", baseType: "f32", isArray: false, arrayLength: 0 }
-  }
-  if (isVec4Array(value)) {
-    return {
-      wgslType: `array<vec4f, 100>`,
-      baseType: "vec4f",
-      isArray: true,
-      arrayLength: 100,
-    }
-  }
-  if (isVec4(value)) {
-    return { wgslType: "vec4f", baseType: "vec4f", isArray: false, arrayLength: 0 }
-  }
-  if (isVec3(value)) {
-    return { wgslType: "vec3f", baseType: "vec3f", isArray: false, arrayLength: 0 }
-  }
-  if (isVec2(value)) {
-    return { wgslType: "vec2f", baseType: "vec2f", isArray: false, arrayLength: 0 }
-  }
+function inferWgslType(value: GpuUniformValue): WgslBaseType {
+  if (typeof value === "number") return "f32"
+  if (isVec4(value)) return "vec4f"
+  if (isVec3(value)) return "vec3f"
+  if (isVec2(value)) return "vec2f"
   throw new Error(`Unsupported uniform value type: ${typeof value}`)
 }
 
@@ -114,9 +94,6 @@ function getTypeSize(type: WgslBaseType): number {
   }
 }
 
-// In WGSL uniform buffers, array elements have 16-byte stride
-const UNIFORM_ARRAY_STRIDE = 16
-
 // Default uniforms with their types (order matters for alignment)
 const DEFAULT_UNIFORMS: Array<{ name: string; baseType: WgslBaseType }> = [
   { name: "iTime", baseType: "f32" },
@@ -138,26 +115,8 @@ function calculateUniformLayout(customUniforms?: Record<string, GpuUniformValue>
     // Align offset
     offset = Math.ceil(offset / alignment) * alignment
 
-    fields.push({ name, type: baseType, offset, size, isArray: false })
+    fields.push({ name, type: baseType, offset, size })
     offset += size
-  }
-
-  // Helper to add an array field
-  const addArrayField = (name: string, baseType: WgslBaseType, arrayLength: number) => {
-    // Arrays in uniform buffers need 16-byte alignment
-    offset = Math.ceil(offset / 16) * 16
-
-    const totalSize = arrayLength * UNIFORM_ARRAY_STRIDE
-    fields.push({
-      name,
-      type: `array<${baseType}, ${arrayLength}>`,
-      offset,
-      size: totalSize,
-      isArray: true,
-      arrayLength,
-      elementStride: UNIFORM_ARRAY_STRIDE,
-    })
-    offset += totalSize
   }
 
   // Add default uniforms first (already ordered for good packing)
@@ -165,37 +124,15 @@ function calculateUniformLayout(customUniforms?: Record<string, GpuUniformValue>
     addField(u.name, u.baseType)
   }
 
-  // Process custom uniforms - separate arrays from scalars/vectors
+  // Add custom uniforms sorted by alignment for better packing
   if (customUniforms) {
-    const scalarEntries: Array<{ name: string; inferred: InferredType }> = []
-    const arrayEntries: Array<{ name: string; inferred: InferredType }> = []
-
-    for (const [name, value] of Object.entries(customUniforms)) {
-      const inferred = inferWgslType(value)
-      if (inferred.isArray) {
-        arrayEntries.push({ name, inferred })
-      } else {
-        scalarEntries.push({ name, inferred })
-      }
-    }
-
-    // Auto-generate _count scalars for each array uniform
-    for (const { name } of arrayEntries) {
-      scalarEntries.push({
-        name: `${name}_count`,
-        inferred: { wgslType: "f32", baseType: "f32", isArray: false, arrayLength: 0 },
-      })
-    }
-
-    // Add scalar/vector uniforms first, sorted by alignment for better packing
-    scalarEntries.sort((a, b) => getTypeAlignment(b.inferred.baseType) - getTypeAlignment(a.inferred.baseType))
-    for (const { name, inferred } of scalarEntries) {
-      addField(name, inferred.baseType)
-    }
-
-    // Add array uniforms after (they need more alignment anyway)
-    for (const { name, inferred } of arrayEntries) {
-      addArrayField(name, inferred.baseType, inferred.arrayLength)
+    const entries = Object.entries(customUniforms).map(([name, value]) => ({
+      name,
+      baseType: inferWgslType(value),
+    }))
+    entries.sort((a, b) => getTypeAlignment(b.baseType) - getTypeAlignment(a.baseType))
+    for (const { name, baseType } of entries) {
+      addField(name, baseType)
     }
   }
 
@@ -213,26 +150,11 @@ function generateUniformStruct(layout: UniformLayout): string {
 function packUniformValue(field: UniformField, value: GpuUniformValue, floatData: Float32Array): void {
   const floatOffset = field.offset / 4
 
-  if (field.isArray && field.elementStride && field.arrayLength) {
-    // Pack array with proper stride
-    const stride = field.elementStride / 4 // stride in floats
-    const maxLen = field.arrayLength
-
-    if (isVec4Array(value)) {
-      for (let i = 0; i < value.length && i < maxLen; i++) {
-        const elemOffset = floatOffset + i * stride
-        floatData[elemOffset] = value[i][0]
-        floatData[elemOffset + 1] = value[i][1]
-        floatData[elemOffset + 2] = value[i][2]
-        floatData[elemOffset + 3] = value[i][3]
-      }
-    }
-  } else if (typeof value === "number") {
+  if (typeof value === "number") {
     floatData[floatOffset] = value
-  } else if (Array.isArray(value) && typeof value[0] === "number") {
-    // Vec2, Vec3, Vec4
+  } else if (Array.isArray(value)) {
     for (let i = 0; i < value.length; i++) {
-      floatData[floatOffset + i] = value[i] as number
+      floatData[floatOffset + i] = value[i]
     }
   }
 }
@@ -260,11 +182,68 @@ fn main(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
 }
 `
 
-function createFragmentShader(userCode: string, layout: UniformLayout): string {
+function getStorageBufferNames(defs?: Record<string, Vec4Array>): string[] {
+  if (!defs) return []
+  return Object.keys(defs).sort()
+}
+
+function createStorageBuffer(device: GPUDevice, name: string, binding: number, data: Vec4Array): StorageBufferEntry {
+  const length = Math.max(data.length, 1)
+  const byteSize = length * 16 // 4 floats * 4 bytes each
+  const buffer = device.createBuffer({
+    label: `storage: ${name}`,
+    size: byteSize,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  })
+  const packingArray = new Float32Array(length * 4)
+
+  // Pack initial data
+  for (let i = 0; i < data.length; i++) {
+    const off = i * 4
+    packingArray[off] = data[i][0]
+    packingArray[off + 1] = data[i][1]
+    packingArray[off + 2] = data[i][2]
+    packingArray[off + 3] = data[i][3]
+  }
+  device.queue.writeBuffer(buffer, 0, packingArray)
+
+  return { name, binding, buffer, currentLength: length, packingArray }
+}
+
+function packAndUploadStorageBuffer(device: GPUDevice, entry: StorageBufferEntry, data: Vec4Array): void {
+  const arr = entry.packingArray
+  arr.fill(0)
+  for (let i = 0; i < data.length; i++) {
+    const off = i * 4
+    arr[off] = data[i][0]
+    arr[off + 1] = data[i][1]
+    arr[off + 2] = data[i][2]
+    arr[off + 3] = data[i][3]
+  }
+  device.queue.writeBuffer(entry.buffer, 0, arr)
+}
+
+function rebuildBindGroup(state: WebGPUState): GPUBindGroup {
+  const entries: GPUBindGroupEntry[] = [{ binding: 0, resource: { buffer: state.uniformBuffer } }]
+  for (const sb of state.storageBuffers) {
+    entries.push({ binding: sb.binding, resource: { buffer: sb.buffer } })
+  }
+  return state.device.createBindGroup({
+    layout: state.bindGroupLayout,
+    entries,
+  })
+}
+
+function createFragmentShader(userCode: string, layout: UniformLayout, storageBufferNames: string[]): string {
+  const storageDeclarations = storageBufferNames
+    .map((name, i) => `@group(0) @binding(${i + 1}) var<storage, read> ${name}: array<vec4f>;`)
+    .join("\n")
+
   return `
 ${generateUniformStruct(layout)}
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+${storageDeclarations}
 
 ${userCode}
 
@@ -282,6 +261,7 @@ async function initializeWebGPU(
   canvas: HTMLCanvasElement,
   fragmentSource: string,
   customUniforms?: Record<string, GpuUniformValue>,
+  storageBufferDefs?: Record<string, Vec4Array>,
 ): Promise<WebGPUState> {
   if (!navigator.gpu) {
     throw new Error("WebGPU not supported in this browser")
@@ -312,6 +292,7 @@ async function initializeWebGPU(
 
   // Calculate uniform layout based on custom uniforms
   const uniformLayout = calculateUniformLayout(customUniforms)
+  const storageBufferNames = getStorageBufferNames(storageBufferDefs)
 
   const vertexModule = device.createShaderModule({
     label: "vertex shader",
@@ -320,7 +301,7 @@ async function initializeWebGPU(
 
   const fragmentModule = device.createShaderModule({
     label: "fragment shader",
-    code: createFragmentShader(fragmentSource, uniformLayout),
+    code: createFragmentShader(fragmentSource, uniformLayout, storageBufferNames),
   })
 
   // Create uniform buffer with calculated size
@@ -330,24 +311,38 @@ async function initializeWebGPU(
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
 
-  const bindGroupLayout = device.createBindGroupLayout({
-    entries: [
-      {
-        binding: 0,
-        visibility: GPUShaderStage.FRAGMENT,
-        buffer: { type: "uniform" },
-      },
-    ],
-  })
+  // Create storage buffers
+  const storageBuffers: StorageBufferEntry[] = storageBufferNames.map((name, i) =>
+    createStorageBuffer(device, name, i + 1, storageBufferDefs?.[name] ?? []),
+  )
+
+  // Build bind group layout entries
+  const layoutEntries: GPUBindGroupLayoutEntry[] = [
+    {
+      binding: 0,
+      visibility: GPUShaderStage.FRAGMENT,
+      buffer: { type: "uniform" },
+    },
+  ]
+  for (const sb of storageBuffers) {
+    layoutEntries.push({
+      binding: sb.binding,
+      visibility: GPUShaderStage.FRAGMENT,
+      buffer: { type: "read-only-storage" },
+    })
+  }
+
+  const bindGroupLayout = device.createBindGroupLayout({ entries: layoutEntries })
+
+  // Build bind group entries
+  const bindGroupEntries: GPUBindGroupEntry[] = [{ binding: 0, resource: { buffer: uniformBuffer } }]
+  for (const sb of storageBuffers) {
+    bindGroupEntries.push({ binding: sb.binding, resource: { buffer: sb.buffer } })
+  }
 
   const uniformBindGroup = device.createBindGroup({
     layout: bindGroupLayout,
-    entries: [
-      {
-        binding: 0,
-        resource: { buffer: uniformBuffer },
-      },
-    ],
+    entries: bindGroupEntries,
   })
 
   const pipelineLayout = device.createPipelineLayout({
@@ -375,10 +370,15 @@ async function initializeWebGPU(
     uniformBuffer,
     uniformBindGroup,
     uniformLayout,
+    bindGroupLayout,
+    storageBuffers,
   }
 }
 
 function cleanupWebGPU(state: WebGPUState): void {
+  for (const sb of state.storageBuffers) {
+    sb.buffer.destroy()
+  }
   state.uniformBuffer.destroy()
   state.device.destroy()
 }
@@ -403,6 +403,7 @@ export function useWebGPU(options: UseWebGPUOptions) {
   const timeScaleRef = useRef(options.timeScale ?? 1)
   const fragmentRef = useRef(options.fragment)
   const uniformsRef = useRef(options.uniforms)
+  const storageBuffersRef = useRef(options.storageBuffers)
   const dprRef = useRef(window.devicePixelRatio || 1)
   const uniformDataRef = useRef<Float32Array<ArrayBuffer> | null>(null)
   const allValuesRef = useRef<Record<string, GpuUniformValue>>({})
@@ -426,6 +427,7 @@ export function useWebGPU(options: UseWebGPUOptions) {
   timeScaleRef.current = options.timeScale ?? 1
   fragmentRef.current = options.fragment
   uniformsRef.current = options.uniforms
+  storageBuffersRef.current = options.storageBuffers
 
   const render = useCallback((time: number) => {
     const state = stateRef.current
@@ -453,7 +455,7 @@ export function useWebGPU(options: UseWebGPUOptions) {
       onFrameRef.current(frameInfoRef.current)
     }
 
-    const { device, context, pipeline, uniformBuffer, uniformBindGroup, uniformLayout } = state
+    const { device, context, pipeline, uniformBuffer, uniformLayout } = state
 
     // Handle canvas resize with high-DPI support
     const dpr = dprRef.current
@@ -481,13 +483,10 @@ export function useWebGPU(options: UseWebGPUOptions) {
     allValues.iMouse = mouseRef.current
     allValues.iMouseNormalized = mouseNormalizedRef.current
 
-    // Merge custom uniforms and auto-generate _count values for arrays
+    // Merge custom uniforms
     if (uniformsRef.current) {
       for (const [name, value] of Object.entries(uniformsRef.current)) {
         allValues[name] = value
-        if (isVec4Array(value)) {
-          allValues[`${name}_count`] = value.length
-        }
       }
     }
 
@@ -502,6 +501,34 @@ export function useWebGPU(options: UseWebGPUOptions) {
       packUniformValue(field, value, uniformData)
     }
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
+
+    // Update storage buffers
+    let needsBindGroupRebuild = false
+    for (const entry of state.storageBuffers) {
+      const data = storageBuffersRef.current?.[entry.name]
+      if (!data) continue
+
+      const requiredLength = Math.max(data.length, 1)
+      if (requiredLength !== entry.currentLength) {
+        // Buffer size changed — recreate
+        entry.buffer.destroy()
+        const byteSize = requiredLength * 16
+        entry.buffer = device.createBuffer({
+          label: `storage: ${entry.name}`,
+          size: byteSize,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        })
+        entry.packingArray = new Float32Array(requiredLength * 4)
+        entry.currentLength = requiredLength
+        needsBindGroupRebuild = true
+      }
+
+      packAndUploadStorageBuffer(device, entry, data)
+    }
+
+    if (needsBindGroupRebuild) {
+      state.uniformBindGroup = rebuildBindGroup(state)
+    }
 
     // Create command encoder and render pass
     const commandEncoder = device.createCommandEncoder()
@@ -519,7 +546,7 @@ export function useWebGPU(options: UseWebGPUOptions) {
     })
 
     renderPass.setPipeline(pipeline)
-    renderPass.setBindGroup(0, uniformBindGroup)
+    renderPass.setBindGroup(0, state.uniformBindGroup)
     renderPass.draw(3)
     renderPass.end()
 
@@ -538,7 +565,12 @@ export function useWebGPU(options: UseWebGPUOptions) {
 
     const initialize = async () => {
       try {
-        const state = await initializeWebGPU(canvas, fragmentRef.current, uniformsRef.current)
+        const state = await initializeWebGPU(
+          canvas,
+          fragmentRef.current,
+          uniformsRef.current,
+          storageBuffersRef.current,
+        )
         if (!mounted) {
           cleanupWebGPU(state)
           return

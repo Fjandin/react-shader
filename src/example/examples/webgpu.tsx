@@ -19,12 +19,12 @@ ${generateSimplexNoiseFunctionGpu()}
 fn mainImage(uv0: vec2f) -> vec4f {
   var uv = uv0 * uniforms.scale;
 
-  for (var i: i32 = 1; i < i32(uniforms.ripples_count); i++) {
+  for (var i: u32 = 1; i < arrayLength(&ripples); i++) {
     uv += DistortionRipple(
       uv,
-      uniforms.ripples[i].xy,
-      uniforms.ripples[i][2] * uniforms.rippleRadius,
-      uniforms.ripples[i][3] * uniforms.rippleIntensity,
+      ripples[i].xy,
+      ripples[i][2] * uniforms.rippleRadius,
+      ripples[i][3] * uniforms.rippleIntensity,
       uniforms.rippleThickness
     );
   }
@@ -116,11 +116,11 @@ export function WebGpuDemo() {
         fragment={gradientShader}
         uniforms={{
           scale,
-          ripples,
           rippleRadius,
           rippleIntensity,
           rippleThickness,
         }}
+        storageBuffers={{ ripples }}
         timeScale={0.5}
         onFrame={onFrame}
         onMouseMove={onMouseMove}

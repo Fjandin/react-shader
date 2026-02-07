@@ -18,6 +18,7 @@ export type {
   DefaultUniforms,
   FloatArray,
   FrameInfo,
+  GpuStorageBuffers,
   ReactShaderProps,
   TextureMagFilter,
   TextureMinFilter,

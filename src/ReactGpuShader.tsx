@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useWebGPU } from "./hooks/useWebGPU"
-import type { FrameInfo, GpuUniformValue } from "./types"
+import type { FrameInfo, GpuUniformValue, Vec4Array } from "./types"
 
 export interface ReactGpuShaderProps {
   className?: string
   fragment: string
   uniforms?: Record<string, GpuUniformValue>
+  storageBuffers?: Record<string, Vec4Array>
   fullscreen?: boolean
   timeScale?: number
   onFrame?: (info: FrameInfo) => void
@@ -41,6 +42,7 @@ export function ReactGpuShader({
   className,
   fragment,
   uniforms,
+  storageBuffers,
   fullscreen = false,
   timeScale,
   onFrame,
@@ -65,6 +67,7 @@ export function ReactGpuShader({
   const { canvasRef } = useWebGPU({
     fragment,
     uniforms,
+    storageBuffers,
     onError: handleError,
     timeScale,
     onFrame,
