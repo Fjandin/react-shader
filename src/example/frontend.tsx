@@ -10,7 +10,6 @@ import { createRoot } from "react-dom/client"
 import "./style.css"
 import { WebGpuMandelbrotDemo } from "./examples/mandelbrot"
 import { WebGpuMandelbrotDemo2 } from "./examples/mandelbrot2"
-import { WebGlDemo } from "./examples/webgl"
 import { WebGpuDemo } from "./examples/webgpu"
 
 // biome-ignore lint/style/noNonNullAssertion: Allow
@@ -31,7 +30,7 @@ if (import.meta.hot) {
   createRoot(elem).render(app)
 }
 
-type Demo = "webgl" | "webgpu" | "mandelbrot" | "mandelbrot2"
+type Demo = "webgpu" | "mandelbrot" | "mandelbrot2"
 
 export function App() {
   const [demo, setDemo] = useState<Demo>("webgpu")
@@ -39,13 +38,6 @@ export function App() {
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
       <div style={{ position: "absolute", top: 20, left: 20, zIndex: 100 }}>
-        <button
-          type="button"
-          onClick={() => setDemo("webgl")}
-          style={{ marginRight: 10, opacity: demo === "webgl" ? 1 : 0.5 }}
-        >
-          WebGL
-        </button>
         <button
           type="button"
           onClick={() => setDemo("webgpu")}
@@ -68,7 +60,6 @@ export function App() {
           Mandelbrot2
         </button>
       </div>
-      {demo === "webgl" && <WebGlDemo />}
       {demo === "webgpu" && <WebGpuDemo />}
       {demo === "mandelbrot" && <WebGpuMandelbrotDemo />}
       {demo === "mandelbrot2" && <WebGpuMandelbrotDemo2 />}
