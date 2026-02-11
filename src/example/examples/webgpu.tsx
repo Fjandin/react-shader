@@ -104,7 +104,7 @@ export function WebGpuDemo() {
   )
 
   const onMouseWheel = useCallback(
-    (info: FrameInfo, wheelDelta: number) => {
+    (_: FrameInfo, wheelDelta: number) => {
       setScale(scale + wheelDelta * 0.1)
     },
     [scale],
