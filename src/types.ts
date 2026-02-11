@@ -2,49 +2,15 @@ export type Vec2 = [number, number]
 export type Vec3 = [number, number, number]
 export type Vec4 = [number, number, number, number]
 
-export type FloatArray = number[]
 export type Vec2Array = Vec2[]
 export type Vec3Array = Vec3[]
 export type Vec4Array = Vec4[]
 
-// Supported GPU uniform types (no textures)
+// Supported GPU uniform types
 export type GpuUniformValue = number | Vec2 | Vec3 | Vec4
 
 // Storage buffers for large array data
 export type GpuStorageBuffers = Record<string, Vec4Array>
-
-export type TextureSource =
-  | HTMLImageElement
-  | HTMLCanvasElement
-  | HTMLVideoElement
-  | ImageBitmap
-  | ImageData
-  | OffscreenCanvas
-
-export type TextureWrap = "repeat" | "clamp" | "mirror"
-export type TextureMinFilter = "nearest" | "linear" | "mipmap"
-export type TextureMagFilter = "nearest" | "linear"
-
-export interface TextureOptions {
-  source: TextureSource
-  wrapS?: TextureWrap
-  wrapT?: TextureWrap
-  minFilter?: TextureMinFilter
-  magFilter?: TextureMagFilter
-  flipY?: boolean
-}
-
-export type UniformValue =
-  | number
-  | Vec2
-  | Vec3
-  | Vec4
-  | FloatArray
-  | Vec2Array
-  | Vec3Array
-  | Vec4Array
-  | TextureSource
-  | TextureOptions
 
 export interface FrameInfo {
   deltaTime: number
@@ -53,20 +19,6 @@ export interface FrameInfo {
   mouse: [number, number]
   mouseNormalized: [number, number]
   mouseLeftDown: boolean
-}
-export interface ReactShaderProps {
-  className?: string
-  fragment: string
-  vertex?: string
-  uniforms?: Record<string, UniformValue>
-  fullscreen?: boolean
-  timeScale?: number
-  onFrame?: (info: FrameInfo) => void
-  onClick?: (info: FrameInfo) => void
-  onMouseMove?: (info: FrameInfo) => void
-  onMouseDown?: (info: FrameInfo) => void
-  onMouseUp?: (info: FrameInfo) => void
-  onMouseWheel?: (info: FrameInfo, wheelDelta: number) => void
 }
 
 export interface DefaultUniforms {

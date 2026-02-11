@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-@fjandin/react-shader is a React component library for rendering WebGL fragment and vertex shaders. It provides a `<ReactShader>` component with automatic uniform handling, designed to work with Shadertoy-style shaders.
+@fjandin/react-shader is a React component library for rendering WebGPU fragment shaders using WGSL. It provides a `<ReactGpuShader>` component with automatic uniform handling, storage buffers, and audio reactivity.
 
 ## Commands
 
@@ -13,7 +13,7 @@ bun run build        # Build ESM, CJS, and TypeScript declarations
 bun run lint         # Run Biome linter/formatter check
 bun run lint --write # Run Biome linter/formatter fixer
 bun run typecheck    # Type-check without emitting
-bun run example      # Start example dev server
+bun run dev          # Start example dev server
 bun run clean        # Remove dist/ directory
 ```
 
@@ -21,21 +21,21 @@ bun run clean        # Remove dist/ directory
 
 ### Core Components
 
-**ReactShader.tsx** - Main React component that wraps a canvas and manages WebGL rendering. Handles error display, debug overlay, and fullscreen mode. Props include `fragment` (required shader), `vertex` (optional), `uniforms`, `running` (pause/resume), `debug`, and `fullscreen`.
+**ReactGpuShader.tsx** - Main React component that wraps a canvas and manages WebGPU rendering. Handles error display and fullscreen mode. Props include `fragment` (required WGSL shader), `uniforms`, `storageBuffers`, `fullscreen`, `timeScale`, and event callbacks.
 
-**hooks/useWebGL.ts** - Core WebGL logic. Initializes context (WebGL2 with WebGL1 fallback), manages shader programs, runs the render loop via requestAnimationFrame, and tracks mouse/resize. Provides default uniforms every frame: `iTime`, `iMouse`, `iResolution`.
+**hooks/useWebGPU.ts** - Core WebGPU logic. Initializes GPU device and context, manages shader pipelines, runs the render loop via requestAnimationFrame, and tracks mouse/resize. Provides default uniforms every frame: `iTime`, `iMouse`, `iMouseNormalized`, `iMouseLeftDown`, `iResolution`.
 
-**utils/shader.ts** - Shader compilation and program linking with error reporting.
+**hooks/useAudio.ts** - Audio reactivity hook. Provides real-time frequency analysis from microphone, media elements, or display audio capture.
 
-**utils/uniforms.ts** - Uniform value setting with type detection and location caching.
+**shaders/*-gpu.ts** - Pre-built WGSL shader helper functions (simplex noise, color palette, distortion ripple, scene circles).
 
 ### Key Implementation Details
 
 - Renders full-screen quad (two triangles) covering clip space (-1 to 1)
-- Mouse Y-coordinate is inverted from DOM to match WebGL convention (Y=0 at bottom)
+- Shaders define a `mainImage(uv: vec2f) -> vec4f` function; the component auto-generates the uniform struct and `@fragment` entry point
+- Mouse Y-coordinate is inverted from DOM to match GPU convention (Y=0 at bottom)
 - High-DPI support via devicePixelRatio scaling
-- Uniform locations are cached to avoid repeated lookups
-- Context loss/restoration is handled gracefully
+- Storage buffers use over-allocation (1.5x growth) for efficient dynamic resizing
 
 ### Build Output
 

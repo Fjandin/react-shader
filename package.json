@@ -1,7 +1,7 @@
 {
   "name": "@fjandin/react-shader",
-  "version": "0.0.21",
-  "description": "React component for rendering WebGL shaders",
+  "version": "0.0.30",
+  "description": "React component for rendering WebGPU shaders with WGSL",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -9,8 +9,8 @@
   "keywords": [
     "react",
     "shader",
-    "webgl",
-    "glsl",
+    "webgpu",
+    "wgsl",
     "graphics"
   ],
   "author": "fjandin",
