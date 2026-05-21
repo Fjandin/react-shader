@@ -275,7 +275,9 @@ async function initializeWebGPU(
   const device = await adapter.requestDevice()
 
   device.lost.then((info) => {
-    console.error(`WebGPU device lost: ${info.message}`)
+    if (info.reason !== "destroyed") {
+      console.error(`WebGPU device lost: ${info.message}`)
+    }
   })
 
   const context = canvas.getContext("webgpu")
