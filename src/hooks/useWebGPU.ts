@@ -406,7 +406,7 @@ export function useWebGPU(options: UseWebGPUOptions) {
   const fragmentRef = useRef(options.fragment)
   const uniformsRef = useRef(options.uniforms)
   const storageBuffersRef = useRef(options.storageBuffers)
-  const dprRef = useRef(window.devicePixelRatio || 1)
+  const dprRef = useRef(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1)
   const uniformDataRef = useRef<Float32Array<ArrayBuffer> | null>(null)
   const allValuesRef = useRef<Record<string, GpuUniformValue>>({})
   const frameInfoRef = useRef<FrameInfo>({
