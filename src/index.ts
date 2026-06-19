@@ -1,5 +1,5 @@
 export { useAudio } from "./hooks/useAudio"
-export type { ReactGpuShaderProps } from "./ReactGpuShader"
+export type { ReactGpuShaderHandle, ReactGpuShaderProps } from "./ReactGpuShader"
 export { ReactGpuShader } from "./ReactGpuShader"
 export { generateColorPaletteFunctionGpu } from "./shaders/color-palette-gpu"
 export { generateDistortionRippleFunctionGpu } from "./shaders/distortion-ripple-gpu"

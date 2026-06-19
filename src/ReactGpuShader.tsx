@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react"
 import { useWebGPU } from "./hooks/useWebGPU"
 import type { FrameInfo, GpuUniformValue, Vec4Array } from "./types"
+
+export interface ReactGpuShaderHandle {
+  /** Reset the shader's `iTime` uniform back to 0. */
+  resetTime: () => void
+}
 
 export interface ReactGpuShaderProps {
   className?: string
@@ -38,20 +43,23 @@ const CANVAS_STYLE: React.CSSProperties = {
   height: "100%",
 }
 
-export function ReactGpuShader({
-  className,
-  fragment,
-  uniforms,
-  storageBuffers,
-  fullscreen = false,
-  timeScale,
-  onFrame,
-  onClick,
-  onMouseMove,
-  onMouseDown,
-  onMouseUp,
-  onMouseWheel,
-}: ReactGpuShaderProps) {
+export const ReactGpuShader = forwardRef<ReactGpuShaderHandle, ReactGpuShaderProps>(function ReactGpuShader(
+  {
+    className,
+    fragment,
+    uniforms,
+    storageBuffers,
+    fullscreen = false,
+    timeScale,
+    onFrame,
+    onClick,
+    onMouseMove,
+    onMouseDown,
+    onMouseUp,
+    onMouseWheel,
+  },
+  ref,
+) {
   const [error, setError] = useState<string | null>(null)
 
   const handleError = useCallback((err: Error) => {
@@ -64,7 +72,7 @@ export function ReactGpuShader({
     setError(null)
   }, [fragment])
 
-  const { canvasRef } = useWebGPU({
+  const { canvasRef, resetTime } = useWebGPU({
     fragment,
     uniforms,
     storageBuffers,
@@ -77,6 +85,8 @@ export function ReactGpuShader({
     onMouseUp,
     onMouseWheel,
   })
+
+  useImperativeHandle(ref, () => ({ resetTime }), [resetTime])
 
   const containerStyle = useMemo(
     () => (fullscreen ? FULLSCREEN_CONTAINER_STYLE : DEFAULT_CONTAINER_STYLE),
@@ -109,4 +119,4 @@ export function ReactGpuShader({
   }
 
   return <canvas ref={canvasRef} className={className} style={CANVAS_STYLE} />
-}
+})

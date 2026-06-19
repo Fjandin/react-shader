@@ -689,5 +689,9 @@ export function useWebGPU(options: UseWebGPUOptions) {
     }
   }, [])
 
-  return { canvasRef, mouseRef }
+  const resetTime = useCallback(() => {
+    elapsedTimeRef.current = 0
+  }, [])
+
+  return { canvasRef, mouseRef, resetTime }
 }
