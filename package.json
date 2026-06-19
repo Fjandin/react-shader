@@ -1,6 +1,6 @@
 {
   "name": "@fjandin/react-shader",
-  "version": "0.0.33",
+  "version": "0.0.34",
   "description": "React component for rendering WebGPU shaders with WGSL",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -36,8 +36,8 @@
   ],
   "scripts": {
     "build": "bun run build:esm && bun run build:cjs && bun run build:types",
-    "build:esm": "bun build ./src/index.ts --outdir ./dist --target browser --format esm --external react --external react-dom",
-    "build:cjs": "bun build ./src/index.ts --target browser --format cjs --outfile ./dist/index.cjs --external react --external react-dom",
+    "build:esm": "bun build ./src/index.ts --outdir ./dist --target browser --format esm --production --external react --external react-dom",
+    "build:cjs": "bun build ./src/index.ts --target browser --format cjs --outfile ./dist/index.cjs --production --external react --external react-dom",
     "build:types": "tsc --emitDeclarationOnly --declaration --outDir ./dist",
     "clean": "rm -rf dist",
     "prepublishOnly": "bun run clean && bun run build",
